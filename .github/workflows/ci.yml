@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check .
+
+  documentation:
+    runs-on: ubuntu-latest
+    name: documentation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: setup neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: generate documentation
+        run: make documentation-ci
+
+      - name: check docs are up-to-date
+        run: |
+          git status doc
+          changed=$(git status --porcelain doc | wc -l | tr -d " ")
+          if [ "$changed" -ne 0 ]; then
+            echo "doc/ is out of date — run 'make documentation' and commit the result"
+            git diff doc
+            exit 1
+          fi
+
+  tests:
+    needs:
+      - lint
+      - documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim_version: ['v0.9.5', 'v0.10.3', 'stable', 'nightly']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: date +%F > todays-date
+
+      - name: restore cache for today's nightly
+        uses: actions/cache@v4
+        with:
+          path: _neovim
+          key: ${{ runner.os }}-x64-${{ matrix.neovim_version }}-${{ hashFiles('todays-date') }}
+
+      - name: setup neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim_version }}
+
+      - name: run tests
+        run: make test-ci
