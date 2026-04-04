@@ -5,6 +5,8 @@ floating window. Create a single window containing multiple typed inputs
 (single-line text, multiline text, select dropdowns), collect results via an
 `on_submit` callback.
 
+![input form example](/input-form.gif)
+
 ## Features
 
 - Bordered floating window with optional title
