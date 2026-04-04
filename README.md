@@ -139,6 +139,92 @@ All inputs share `name` (string, required — the key in the result table) and
 
 `value()` returns the selected `id` (not the label).
 
+## Validation
+
+Each input spec accepts an optional `validator` function:
+
+```lua
+validator = fun(value: any): string|nil
+```
+
+Return a non-empty error message string to mark the input invalid, or `nil` /
+`""` when valid. The error message is shown in the input's bottom border
+(red), and the border + label turn red too. Validation runs:
+
+- **On blur** — the first time the user leaves the field it is marked
+  "touched" and the validator runs. Nothing is shown before that.
+- **On change** — once touched, each buffer change re-runs the validator.
+- **On submit** — `form:submit()` force-validates every input (touched or
+  not). If any input has an error, submission is blocked, all errors are
+  rendered, and focus moves to the first invalid input.
+
+### Built-in validators
+
+```lua
+local V = require("input-form").validators
+
+V.non_empty([msg])                  -- require a non-empty value
+V.min_length(n, [msg])              -- at least `n` characters
+V.max_length(n, [msg])              -- at most `n` characters
+V.matches(lua_pattern, [msg])       -- match a Lua pattern
+V.is_number([msg])                  -- tonumber() must succeed
+V.one_of({ "a", "b", ... }, [msg])  -- value must be in the list
+V.custom(predicate, msg)            -- wrap a `fun(v): boolean` predicate
+V.chain(v1, v2, ...)                -- run validators in order, first error wins
+```
+
+Example:
+
+```lua
+local f = require("input-form")
+local V = f.validators
+
+f.create_form({
+  inputs = {
+    {
+      name = "id",
+      label = "Enter ID",
+      type = "text",
+      validator = V.chain(
+        V.non_empty(),
+        V.min_length(3),
+        V.matches("^[%w_-]+$", "Only letters, digits, - and _")
+      ),
+    },
+    {
+      name = "age",
+      label = "Age",
+      type = "text",
+      validator = V.chain(V.non_empty(), V.is_number()),
+    },
+  },
+  on_submit = function(results)
+    vim.print(results) -- only runs if every validator passes
+  end,
+}):show()
+```
+
+Custom validators are just functions — no need to use the builder helpers if
+you'd rather write one inline:
+
+```lua
+validator = function(value)
+  if value == "admin" then
+    return "Username 'admin' is reserved"
+  end
+end
+```
+
+### Highlight groups
+
+Error rendering uses three highlight groups. Override them to re-theme:
+
+```lua
+vim.api.nvim_set_hl(0, "InputFormFieldError",       { fg = "#ff5555" })
+vim.api.nvim_set_hl(0, "InputFormFieldErrorBorder", { fg = "#ff5555" })
+vim.api.nvim_set_hl(0, "InputFormFieldErrorTitle",  { fg = "#ff5555", bold = true })
+```
+
 ## Configuration
 
 Defaults:

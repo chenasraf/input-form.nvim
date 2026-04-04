@@ -69,6 +69,11 @@ Expose the Form class for advanced use.
                                    `M.config`
 Expose the config module.
 
+------------------------------------------------------------------------------
+                                                                  *M.validators*
+                                 `M.validators`
+Expose the built-in validator library. See |input-form.validators|.
+
 
 ==============================================================================
 ------------------------------------------------------------------------------
@@ -135,6 +140,100 @@ Parameters ~
 {user_opts} `(table|nil)`
 Return ~
 `(table)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                         *input-form.validators*
+Validators for form inputs.
+
+A validator is a function `fun(value): string|nil`. It receives the
+current input value and returns a non-empty error message string when
+invalid, or `nil` / `""` when valid.
+
+This module exposes factory functions for common validators plus a
+`chain` combinator that runs several validators in order and returns the
+first error.
+
+------------------------------------------------------------------------------
+                                                                 *M.non_empty()*
+                              `M.non_empty`({msg})
+Require the field to have a non-empty value.
+Parameters ~
+{msg} `(string|nil)` Override error message.
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                *M.min_length()*
+                           `M.min_length`({n}, {msg})
+Require the value's length to be at least `n` characters.
+Parameters ~
+{n} `(integer)`
+{msg} `(string|nil)`
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                *M.max_length()*
+                           `M.max_length`({n}, {msg})
+Require the value's length to be at most `n` characters.
+Parameters ~
+{n} `(integer)`
+{msg} `(string|nil)`
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                   *M.matches()*
+                         `M.matches`({pattern}, {msg})
+Require the value to match a Lua pattern.
+Parameters ~
+{pattern} `(string)` Lua pattern (not PCRE).
+{msg} `(string|nil)`
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                 *M.is_number()*
+                              `M.is_number`({msg})
+Require the value to parse as a number.
+Parameters ~
+{msg} `(string|nil)`
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                    *M.one_of()*
+                          `M.one_of`({choices}, {msg})
+Require the value to be one of the given choices (useful for text inputs
+that must match a fixed allowlist; select inputs should use their
+`options` list instead).
+Parameters ~
+{choices} `(table)` List of allowed values.
+{msg} `(string|nil)`
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                    *M.custom()*
+                         `M.custom`({predicate}, {msg})
+Wrap a predicate `fun(value): boolean` as a validator.
+Parameters ~
+{predicate} `(function)`
+{msg} `(string)` Error message to return when the predicate is false.
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                     *M.chain()*
+                                `M.chain`({...})
+Combine multiple validators. Runs them in order and returns the first
+non-empty error. Accepts either a list table or a varargs list.
+Parameters ~
+{...} `(function|table)`
+Return ~
+`(function)`
 
 
  vim:tw=78:ts=8:noet:ft=help:norl:

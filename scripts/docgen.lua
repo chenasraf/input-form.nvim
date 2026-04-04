@@ -5,4 +5,5 @@ require("mini.doc").setup()
 MiniDoc.generate({
   "lua/input-form/init.lua",
   "lua/input-form/config.lua",
+  "lua/input-form/validators.lua",
 }, "doc/input-form.txt")

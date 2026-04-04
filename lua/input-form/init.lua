@@ -74,6 +74,9 @@ M.Form = Form
 --- Expose the config module.
 M.config = config
 
+--- Expose the built-in validator library. See |input-form.validators|.
+M.validators = require("input-form.validators")
+
 -- Run once on first require so users/plugin devs don't have to call `setup()`
 -- just to get working help tags.
 register_helptags()

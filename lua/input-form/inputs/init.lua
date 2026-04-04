@@ -17,7 +17,11 @@ function M.build(spec)
   local t = spec.type or "text"
   local impl = M.types[t]
   assert(impl, "unknown input type: " .. tostring(t))
-  return impl.new(spec)
+  local input = impl.new(spec)
+  input.validator = spec.validator
+  input._touched = false
+  input._error = nil
+  return input
 end
 
 return M

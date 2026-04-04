@@ -187,6 +187,81 @@ T["form"]["multiline inputs do not rebind <CR>"] = function()
   eq(has_cr, false)
 end
 
+T["form"]["validation"] = MiniTest.new_set()
+
+local function make_validated_form(child)
+  child.lua([[
+    local V = require('input-form.validators')
+    _G.submit_result = nil
+    _G.vf = require('input-form').create_form({
+      inputs = {
+        { name = 'id', label = 'Enter ID', type = 'text',
+          default = '',
+          validator = V.chain(V.non_empty(), V.min_length(3)) },
+        { name = 'body', label = 'Body', type = 'multiline', default = '' },
+      },
+      on_submit = function(r) _G.submit_result = r end,
+    })
+    _G.vf:show()
+  ]])
+end
+
+T["form"]["validation"]["no error shown before the field is touched"] = function()
+  make_validated_form(child)
+  eq(child.lua_get([[_G.vf._inputs[1]._touched]]), false)
+  eq(child.lua_get([[_G.vf._inputs[1]._error]]), vim.NIL)
+end
+
+T["form"]["validation"]["blur marks touched and runs validator"] = function()
+  make_validated_form(child)
+  -- Move focus from input 1 to input 2 — fires WinLeave on input 1.
+  child.lua([[_G.vf:focus_next()]])
+  eq(child.lua_get([[_G.vf._inputs[1]._touched]]), true)
+  eq(child.lua_get([[_G.vf._inputs[1]._error]]), "This field is required")
+end
+
+T["form"]["validation"]["re-validates on change after touched"] = function()
+  make_validated_form(child)
+  child.lua([[_G.vf:focus_next()]]) -- blur input 1, errors
+  child.lua([[_G.vf:focus_prev()]]) -- back to input 1
+  child.lua([[vim.api.nvim_buf_set_lines(_G.vf._inputs[1].buf, 0, -1, false, { 'ab' })]])
+  eq(child.lua_get([[_G.vf._inputs[1]._error]]), "Must be at least 3 characters")
+  child.lua([[vim.api.nvim_buf_set_lines(_G.vf._inputs[1].buf, 0, -1, false, { 'abcd' })]])
+  eq(child.lua_get([[_G.vf._inputs[1]._error]]), vim.NIL)
+end
+
+T["form"]["validation"]["submit blocked when any input is invalid"] = function()
+  make_validated_form(child)
+  child.lua([[_G.vf:submit()]])
+  -- submit should NOT have run on_submit
+  eq(child.lua_get([[_G.submit_result]]), vim.NIL)
+  -- form still visible
+  eq(child.lua_get([[_G.vf._visible]]), true)
+  -- first input is now touched and errored
+  eq(child.lua_get([[_G.vf._inputs[1]._touched]]), true)
+  eq(child.lua_get([[_G.vf._inputs[1]._error]]), "This field is required")
+  -- focus moved to the first invalid input
+  eq(child.lua_get([[_G.vf._focus_idx]]), 1)
+end
+
+T["form"]["validation"]["submit proceeds once all inputs are valid"] = function()
+  make_validated_form(child)
+  child.lua([[vim.api.nvim_buf_set_lines(_G.vf._inputs[1].buf, 0, -1, false, { 'valid id' })]])
+  child.lua([[_G.vf:submit()]])
+  eq(child.lua_get([[type(_G.submit_result)]]), "table")
+  eq(child.lua_get([[_G.submit_result.id]]), "valid id")
+  eq(child.lua_get([[_G.vf._visible]]), false)
+end
+
+T["form"]["validation"]["inputs without a validator are never marked touched"] = function()
+  make_validated_form(child)
+  -- Second input has no validator.
+  child.lua([[_G.vf:focus_next()]])
+  child.lua([[_G.vf:focus_prev()]])
+  eq(child.lua_get([[_G.vf._inputs[2]._touched]]), false)
+  eq(child.lua_get([[_G.vf._inputs[2]._error]]), vim.NIL)
+end
+
 T["form"]["keymaps are installed on each input buffer"] = function()
   child.lua([[_G.f = _G.make_form(); _G.f:show()]])
   -- <Tab> should be mapped in normal mode on the first input's buffer.

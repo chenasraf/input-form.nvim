@@ -189,9 +189,14 @@ function M:open_dropdown()
   end
   local function confirm()
     local row = vim.api.nvim_win_get_cursor(self.dropdown_win)[1]
-    self._selected_id = self.options[row].id
+    local new_id = self.options[row].id
+    local changed = new_id ~= self._selected_id
+    self._selected_id = new_id
     self:_render_display()
     self:close_dropdown()
+    if changed and self._on_change then
+      self._on_change()
+    end
   end
   map("<CR>", confirm)
   map("<Esc>", function()
@@ -220,10 +225,14 @@ end
 
 --- Programmatically set the selected option by id (used in tests & external callers).
 function M:select_id(id)
+  local changed = id ~= self._selected_id
   for _, opt in ipairs(self.options) do
     if opt.id == id then
       self._selected_id = id
       self:_render_display()
+      if changed and self._on_change then
+        self._on_change()
+      end
       return true
     end
   end
