@@ -1,0 +1,104 @@
+local helpers = dofile("tests/helpers.lua")
+local MiniTest = require("mini.test")
+
+local child = helpers.new_child_neovim()
+local eq = helpers.expect.equality
+
+local T = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      child.restart({ "-u", "scripts/minimal_init.lua" })
+      child.lua([[require('input-form').setup()]])
+      child.lua([[
+        _G.mk = function(default)
+          return require('input-form.inputs.select').new({
+            name = 's', label = 'S',
+            default = default,
+            options = {
+              { id = 'a', label = 'Alpha' },
+              { id = 'b', label = 'Beta' },
+              { id = 'c', label = 'Gamma' },
+            },
+          })
+        end
+      ]])
+    end,
+    post_once = child.stop,
+  },
+})
+
+T["select input"] = MiniTest.new_set()
+
+T["select input"]["defaults to first option when none given"] = function()
+  child.lua([[_G.t = _G.mk(nil); _G.t:mount({ row = 5, col = 5, width = 30 })]])
+  eq(child.lua_get([[_G.t:value()]]), "a")
+  eq(child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)]]), { "Alpha" })
+end
+
+T["select input"]["honors explicit default"] = function()
+  child.lua([[_G.t = _G.mk('b'); _G.t:mount({ row = 5, col = 5, width = 30 })]])
+  eq(child.lua_get([[_G.t:value()]]), "b")
+  eq(child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)]]), { "Beta" })
+end
+
+T["select input"]["display buffer is read-only"] = function()
+  child.lua([[_G.t = _G.mk('a'); _G.t:mount({ row = 5, col = 5, width = 30 })]])
+  eq(child.lua_get([[vim.bo[_G.t.buf].modifiable]]), false)
+end
+
+T["select input"]["select_id updates value and display"] = function()
+  child.lua([[
+    _G.t = _G.mk('a')
+    _G.t:mount({ row = 5, col = 5, width = 30 })
+    _G.ok = _G.t:select_id('c')
+  ]])
+  eq(child.lua_get([[_G.ok]]), true)
+  eq(child.lua_get([[_G.t:value()]]), "c")
+  eq(child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)]]), { "Gamma" })
+end
+
+T["select input"]["open_dropdown shows all options and <CR> confirms"] = function()
+  child.lua([[
+    _G.t = _G.mk('a')
+    _G.t:mount({ row = 5, col = 5, width = 30 })
+    _G.t:open_dropdown()
+  ]])
+  eq(
+    child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.dropdown_buf, 0, -1, false)]]),
+    { "  Alpha", "  Beta", "  Gamma" }
+  )
+  -- Move to row 2 (Beta) and confirm via the keymap callback.
+  child.lua([[
+    vim.api.nvim_win_set_cursor(_G.t.dropdown_win, { 2, 0 })
+    -- Fire the <CR> mapping we installed.
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<CR>', true, false, true), 'x', false)
+  ]])
+  eq(child.lua_get([[_G.t:value()]]), "b")
+  eq(child.lua_get([[_G.t.dropdown_win]]), vim.NIL)
+end
+
+T["select input"]["<Esc> closes dropdown without changing value"] = function()
+  child.lua([[
+    _G.t = _G.mk('a')
+    _G.t:mount({ row = 5, col = 5, width = 30 })
+    _G.t:open_dropdown()
+    vim.api.nvim_win_set_cursor(_G.t.dropdown_win, { 3, 0 })
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'x', false)
+  ]])
+  eq(child.lua_get([[_G.t:value()]]), "a")
+  eq(child.lua_get([[_G.t.dropdown_win]]), vim.NIL)
+end
+
+T["select input"]["rejects empty options list"] = function()
+  local ok = child.lua_get([[
+    (function()
+      local ok, err = pcall(function()
+        require('input-form.inputs.select').new({ name = 's', label = 'S', options = {} })
+      end)
+      return ok
+    end)()
+  ]])
+  eq(ok, false)
+end
+
+return T
