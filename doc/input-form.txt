@@ -1,0 +1,140 @@
+*input-form.nvim*
+
+A small Neovim plugin for showing bordered floating-window forms made up
+of multiple typed inputs (text, multiline, select). Submit results are
+returned to a user callback.
+
+==============================================================================
+@tag input-form
+@tag input-form.nvim
+
+------------------------------------------------------------------------------
+                                                           *register_helptags()*
+                             `register_helptags`()
+Best-effort helptag registration. Runs on first `require('input-form')` so
+`:h input-form` works even if the user never calls `setup()`. Idempotent.
+
+------------------------------------------------------------------------------
+                                                              *input-form.setup*
+                               `M.setup`({opts})
+Configure the plugin. Calling this is OPTIONAL — the defaults work without
+it, and `create_form` is safe to use on a bare `require('input-form')`.
+Useful for end users who want to override defaults globally, or for wrapper
+plugins that want to set a baseline config for their consumers.
+Parameters ~
+{opts} `(table|nil)` See |input-form.config|.
+Return ~
+`(table)` The merged options table.
+Usage ~
+`require("input-form").setup({ window = { border = "single" } })`
+
+------------------------------------------------------------------------------
+                                                        *input-form.create_form*
+                            `M.create_form`({spec})
+Create a new form. Does NOT display it — call `form:show()` to open it.
+
+Parameters ~
+{spec} `(table)` Form specification:
+ - `inputs` (table): list of input specs, each with `name`, `label`, `type`
+   (`"text"`, `"multiline"`, `"select"`), `default?`, and for selects
+   `options` (list of `{ id, label }`).
+ - `on_submit` (function|nil): called with a `{ [name] = value }` table.
+ - `on_cancel` (function|nil): called when the form is cancelled.
+ - `title` (string|nil): override window title for this form.
+ - `width` (number|nil): override window width for this form.
+Return ~
+`(table)` Form instance exposing `:show()`, `:hide()`, `:close()`,
+ `:submit()`, `:cancel()`, `:results()`.
+Usage ~
+>
+ local f = require("input-form")
+ local form = f.create_form({
+   inputs = {
+     { name = "id", label = "Enter ID", type = "text", default = "sample ID" },
+     { name = "choice", label = "Pick one", type = "select",
+       options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } } },
+     { name = "body", label = "Multiline", type = "multiline" },
+   },
+   on_submit = function(results) vim.print(results) end,
+ })
+ form:show()
+<
+------------------------------------------------------------------------------
+                                                                        *M.Form*
+                                    `M.Form`
+Expose the Form class for advanced use.
+
+------------------------------------------------------------------------------
+                                                                      *M.config*
+                                   `M.config`
+Expose the config module.
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                             *input-form.config*
+
+                                                               *Default* *values:*
+                                  `M.defaults`
+Default configuration for |input-form|.
+
+>lua
+  M.defaults = {
+    --- Floating window appearance.
+    window = {
+      --- Border style passed to `nvim_open_win`. One of `none`, `single`,
+      --- `double`, `rounded`, `solid`, `shadow`, or a custom 8-element list.
+      border = "rounded",
+      --- Window width in columns. Numbers <= 1 are treated as a ratio of
+      --- `vim.o.columns` (e.g. `0.6` = 60% of editor width).
+      width = 60,
+      --- Window title string. Set to `nil` to omit.
+      title = " Form ",
+      --- Title alignment: `"left"`, `"center"`, or `"right"`.
+      title_pos = "center",
+      --- Pseudo-transparency (0-100).
+      winblend = 0,
+      --- Padding (in cells) between the parent border and the inputs. Applied to
+      --- all four sides.
+      padding = 0,
+      --- Blank rows rendered between adjacent inputs.
+      gap = 0,
+    },
+    --- Keymaps used inside the form. Set any value to `false` to disable.
+    keymaps = {
+      --- Focus the next input (wraps).
+      next = "<Tab>",
+      --- Focus the previous input (wraps).
+      prev = "<S-Tab>",
+      --- Submit the form and invoke `on_submit(results)`.
+      submit = "<C-s>",
+      --- Cancel the form and invoke `on_cancel()` if provided.
+      cancel = "<Esc>",
+      --- Open the dropdown when focused on a `select` input.
+      open_select = "<CR>",
+    },
+    --- Options for `select` inputs.
+    select = {
+      --- Maximum number of visible rows in the dropdown before scrolling.
+      max_height = 10,
+    },
+    --- Default height (in rows) for `multiline` inputs that do not specify one.
+    multiline = {
+      height = 5,
+    },
+  }
+
+  M.options = vim.deepcopy(M.defaults)
+
+<
+------------------------------------------------------------------------------
+                                                       *input-form.config.setup*
+                             `M.setup`({user_opts})
+Merge user options over defaults and store them on the module.
+Parameters ~
+{user_opts} `(table|nil)`
+Return ~
+`(table)`
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
