@@ -1,0 +1,9 @@
+Default	input-form.txt	/*Default*
+M.Form	input-form.txt	/*M.Form*
+M.config	input-form.txt	/*M.config*
+input-form.config	input-form.txt	/*input-form.config*
+input-form.config.setup	input-form.txt	/*input-form.config.setup*
+input-form.create_form	input-form.txt	/*input-form.create_form*
+input-form.nvim	input-form.txt	/*input-form.nvim*
+input-form.setup	input-form.txt	/*input-form.setup*
+values:	input-form.txt	/*values:*
