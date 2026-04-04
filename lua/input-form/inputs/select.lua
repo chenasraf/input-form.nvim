@@ -5,6 +5,7 @@
 --- window; j/k/arrows navigate, <CR> confirms, <Esc> cancels.
 
 local config = require("input-form.config")
+local utils = require("input-form.utils")
 
 local M = {}
 M.__index = M
@@ -47,35 +48,46 @@ local function label_for(options, id)
   return ""
 end
 
-local function format_display(options, id)
-  return label_for(options, id)
+local CHEVRON_CLOSED = " ▼"
+local CHEVRON_OPEN = " ▲"
+
+local function format_display(options, id, width, open)
+  local label = label_for(options, id)
+  local chevron = open and CHEVRON_OPEN or CHEVRON_CLOSED
+  if not width or width <= 0 then
+    return label .. chevron
+  end
+  local label_w = vim.fn.strdisplaywidth(label)
+  local chev_w = vim.fn.strdisplaywidth(chevron)
+  local pad = width - label_w - chev_w
+  if pad < 1 then
+    pad = 1
+  end
+  return label .. string.rep(" ", pad) .. chevron
 end
 
 function M:_render_display()
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
+    local line = format_display(self.options, self._selected_id, self._width, self._open)
     vim.bo[self.buf].modifiable = true
-    vim.api.nvim_buf_set_lines(
-      self.buf,
-      0,
-      -1,
-      false,
-      { format_display(self.options, self._selected_id) }
-    )
+    vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, { line })
     vim.bo[self.buf].modifiable = false
   end
 end
 
 function M:mount(layout)
+  self._width = layout.width
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[self.buf].buftype = "nofile"
   vim.bo[self.buf].bufhidden = "wipe"
   vim.bo[self.buf].swapfile = false
+  utils.mark_form_buffer(self.buf)
   vim.api.nvim_buf_set_lines(
     self.buf,
     0,
     -1,
     false,
-    { format_display(self.options, self._selected_id) }
+    { format_display(self.options, self._selected_id, self._width, self._open) }
   )
   vim.bo[self.buf].modifiable = false
 
@@ -119,6 +131,10 @@ end
 function M:focus()
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
+    -- Park the cursor at col 0 so the terminal cursor block sits on the label
+    -- (clean state) or on the dirty-shifted chevron's left neighbour (dirty
+    -- state), never on top of the chevron itself.
+    pcall(vim.api.nvim_win_set_cursor, self.win, { 1, 0 })
   end
 end
 
@@ -140,6 +156,7 @@ function M:open_dropdown()
   self.dropdown_buf = vim.api.nvim_create_buf(false, true)
   vim.bo[self.dropdown_buf].buftype = "nofile"
   vim.bo[self.dropdown_buf].bufhidden = "wipe"
+  utils.mark_form_buffer(self.dropdown_buf)
   vim.api.nvim_buf_set_lines(self.dropdown_buf, 0, -1, false, lines)
   vim.bo[self.dropdown_buf].modifiable = false
 
@@ -160,6 +177,8 @@ function M:open_dropdown()
     focusable = true,
     zindex = 100,
   })
+  self._open = true
+  self:_render_display()
   vim.wo[self.dropdown_win].cursorline = true
   vim.wo[self.dropdown_win].winhl =
     "NormalFloat:InputFormDropdown,CursorLine:InputFormDropdownActive"
@@ -192,6 +211,8 @@ function M:close_dropdown()
   end
   self.dropdown_win = nil
   self.dropdown_buf = nil
+  self._open = false
+  self:_render_display()
   if self.win and vim.api.nvim_win_is_valid(self.win) then
     vim.api.nvim_set_current_win(self.win)
   end

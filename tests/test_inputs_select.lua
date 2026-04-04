@@ -32,13 +32,17 @@ T["select input"] = MiniTest.new_set()
 T["select input"]["defaults to first option when none given"] = function()
   child.lua([[_G.t = _G.mk(nil); _G.t:mount({ row = 5, col = 5, width = 30 })]])
   eq(child.lua_get([[_G.t:value()]]), "a")
-  eq(child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)]]), { "Alpha" })
+  local line = child.lua_get([==[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)[1]]==])
+  helpers.expect.match(line, "^Alpha")
+  helpers.expect.match(line, "▼")
 end
 
 T["select input"]["honors explicit default"] = function()
   child.lua([[_G.t = _G.mk('b'); _G.t:mount({ row = 5, col = 5, width = 30 })]])
   eq(child.lua_get([[_G.t:value()]]), "b")
-  eq(child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)]]), { "Beta" })
+  local line = child.lua_get([==[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)[1]]==])
+  helpers.expect.match(line, "^Beta")
+  helpers.expect.match(line, "▼")
 end
 
 T["select input"]["display buffer is read-only"] = function()
@@ -54,7 +58,9 @@ T["select input"]["select_id updates value and display"] = function()
   ]])
   eq(child.lua_get([[_G.ok]]), true)
   eq(child.lua_get([[_G.t:value()]]), "c")
-  eq(child.lua_get([[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)]]), { "Gamma" })
+  local line = child.lua_get([==[vim.api.nvim_buf_get_lines(_G.t.buf, 0, -1, false)[1]]==])
+  helpers.expect.match(line, "^Gamma")
+  helpers.expect.match(line, "▼")
 end
 
 T["select input"]["open_dropdown shows all options and <CR> confirms"] = function()

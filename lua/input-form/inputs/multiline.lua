@@ -1,6 +1,7 @@
 --- Multi-line text input component.
 
 local config = require("input-form.config")
+local utils = require("input-form.utils")
 
 local M = {}
 M.__index = M
@@ -31,6 +32,7 @@ function M:mount(layout)
   vim.bo[self.buf].buftype = "nofile"
   vim.bo[self.buf].bufhidden = "wipe"
   vim.bo[self.buf].swapfile = false
+  utils.mark_form_buffer(self.buf)
   local lines = vim.split(self._value, "\n", { plain = true })
   vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, lines)
 

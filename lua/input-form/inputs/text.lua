@@ -1,5 +1,7 @@
 --- Single-line text input component.
 
+local utils = require("input-form.utils")
+
 local M = {}
 M.__index = M
 
@@ -29,6 +31,7 @@ function M:mount(layout)
   vim.bo[self.buf].buftype = "nofile"
   vim.bo[self.buf].bufhidden = "wipe"
   vim.bo[self.buf].swapfile = false
+  utils.mark_form_buffer(self.buf)
   vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, { self._value })
 
   local win_cfg = {

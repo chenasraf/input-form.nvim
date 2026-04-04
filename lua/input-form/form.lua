@@ -118,6 +118,10 @@ function M:show()
   end
   self._visible = true
 
+  -- Lazy: teach known UI plugins (nvim-scrollbar, satellite, ...) to skip
+  -- form buffers. Runs once per nvim session.
+  utils.register_ui_exclusions()
+
   local layout = self:_compute_layout()
   self._layout = layout
 
@@ -126,6 +130,7 @@ function M:show()
   vim.bo[self._parent_buf].buftype = "nofile"
   vim.bo[self._parent_buf].bufhidden = "wipe"
   vim.bo[self._parent_buf].swapfile = false
+  utils.mark_form_buffer(self._parent_buf)
 
   local parent_lines = {}
   for _ = 1, layout.parent_inner_h do
@@ -183,7 +188,14 @@ function M:show()
       border = border,
     })
     self:_install_keymaps(input)
+    self:_install_validation(input)
   end
+
+  -- Default highlight groups for validation error state. `default = true`
+  -- means user overrides take precedence.
+  pcall(vim.api.nvim_set_hl, 0, "InputFormFieldError", { fg = "Red", default = true })
+  pcall(vim.api.nvim_set_hl, 0, "InputFormFieldErrorBorder", { fg = "Red", default = true })
+  pcall(vim.api.nvim_set_hl, 0, "InputFormFieldErrorTitle", { fg = "Red", default = true })
 
   self:_focus(1)
   return self
