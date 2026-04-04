@@ -153,6 +153,40 @@ T["form"]["invalid spec raises"] = function()
   eq(ok_empty, false)
 end
 
+T["form"]["text inputs stop insert on <CR> (no newlines)"] = function()
+  child.lua([[
+    _G.f = _G.make_form()
+    _G.f:show()
+    vim.api.nvim_set_current_win(_G.f._inputs[1].win)
+    -- Feed `i` to enter insert, then `<CR>` which should now invoke stopinsert
+    -- instead of inserting a newline.
+    vim.api.nvim_feedkeys(
+      vim.api.nvim_replace_termcodes('i<CR>', true, false, true),
+      'x',
+      false
+    )
+  ]])
+  -- Exactly one line (no newline inserted) and we're back in normal mode.
+  eq(child.lua_get([[#vim.api.nvim_buf_get_lines(_G.f._inputs[1].buf, 0, -1, false)]]), 1)
+  eq(child.lua_get([[vim.api.nvim_get_mode().mode]]), "n")
+  -- Form still visible.
+  eq(child.lua_get([[_G.f._visible]]), true)
+end
+
+T["form"]["multiline inputs do not rebind <CR>"] = function()
+  child.lua([[_G.f = _G.make_form(); _G.f:show()]])
+  local has_cr = child.lua_get([[
+    (function()
+      local maps = vim.api.nvim_buf_get_keymap(_G.f._inputs[3].buf, 'i')
+      for _, m in ipairs(maps) do
+        if m.lhs == '<CR>' then return true end
+      end
+      return false
+    end)()
+  ]])
+  eq(has_cr, false)
+end
+
 T["form"]["keymaps are installed on each input buffer"] = function()
   child.lua([[_G.f = _G.make_form(); _G.f:show()]])
   -- <Tab> should be mapped in normal mode on the first input's buffer.

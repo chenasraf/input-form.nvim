@@ -327,6 +327,13 @@ function M:_install_keymaps(input)
     -- Block insert mode on the select display buffer.
     vim.keymap.set("n", "i", "<Nop>", { buffer = buf, nowait = true, silent = true })
     vim.keymap.set("n", "a", "<Nop>", { buffer = buf, nowait = true, silent = true })
+  elseif input.type == "text" then
+    -- Single-line text inputs must never contain newlines. <CR> in insert
+    -- mode just exits insert mode (accepting the value) rather than inserting
+    -- a line break. Multiline inputs intentionally keep <CR> for newline entry.
+    map("i", "<CR>", function()
+      vim.cmd("stopinsert")
+    end)
   end
 end
 
