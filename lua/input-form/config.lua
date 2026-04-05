@@ -51,6 +51,41 @@ M.defaults = {
   multiline = {
     height = 5,
   },
+  --- Visual styling
+  style = {
+    --- Chevron glyphs shown on the right side of `select` inputs to indicate
+    --- the dropdown state. Override either to taste (e.g. `"v"`/`"^"` for
+    --- ASCII, or extra spacing for wider icons).
+    chevron = {
+      --- Glyph shown when the dropdown is closed.
+      closed = "⌄",
+      --- Glyph shown when the dropdown is open.
+      open = "⌃",
+    },
+    --- Highlight groups applied on every `form:show()`. Each entry is passed
+    --- directly to `vim.api.nvim_set_hl(0, name, spec)`, so any option that
+    --- `nvim_set_hl` accepts (`fg`, `bg`, `link`, `bold`, `italic`,
+    --- `default`, ...) is valid. User overrides fully replace the default
+    --- spec for the matching group (they are NOT deep-merged field by field).
+    highlights = {
+      -- Parent form window
+      InputFormNormal = { link = "NormalFloat", default = true },
+      InputFormBorder = { link = "FloatBorder", default = true },
+      InputFormTitle = { link = "FloatTitle", default = true },
+      InputFormHelp = { fg = "Cyan", default = true },
+      -- Individual input fields
+      InputFormField = { link = "NormalFloat", default = true },
+      InputFormFieldBorder = { link = "FloatBorder", default = true },
+      InputFormFieldTitle = { link = "FloatTitle", default = true },
+      -- Error state for individual input fields
+      InputFormFieldError = { fg = "Red", default = true },
+      InputFormFieldErrorBorder = { fg = "Red", default = true },
+      InputFormFieldErrorTitle = { fg = "Red", default = true },
+      -- Select dropdown list
+      InputFormDropdown = { link = "NormalFloat", default = true },
+      InputFormDropdownActive = { link = "PmenuSel", default = true },
+    },
+  },
 }
 
 M.options = vim.deepcopy(M.defaults)
@@ -60,7 +95,16 @@ M.options = vim.deepcopy(M.defaults)
 ---@param user_opts table|nil
 ---@return table
 function M.setup(user_opts)
-  M.options = utils.merge(vim.deepcopy(M.defaults), user_opts or {})
+  local merged = utils.merge(vim.deepcopy(M.defaults), user_opts or {})
+  -- Highlight specs must be replaced per-group, not deep-merged, so a user
+  -- override like `{ fg = "#ff5555" }` doesn't inherit the default's
+  -- `default = true` flag (which would let a colorscheme clobber it).
+  if user_opts and user_opts.style and user_opts.style.highlights then
+    for name, spec in pairs(user_opts.style.highlights) do
+      merged.style.highlights[name] = spec
+    end
+  end
+  M.options = merged
   return M.options
 end
 

@@ -122,6 +122,10 @@ function M:show()
   -- form buffers. Runs once per nvim session.
   utils.register_ui_exclusions()
 
+  -- Apply configured highlight groups (user-configurable via
+  -- `setup({ style = { highlights = { ... } } })`).
+  self:_apply_highlights()
+
   local layout = self:_compute_layout()
   self._layout = layout
 
@@ -161,9 +165,6 @@ function M:show()
       win_opts.footer_pos = "center"
     end
   end
-  -- Default highlight for the footer (help text): cyan, overridable by the user.
-  pcall(vim.api.nvim_set_hl, 0, "InputFormHelp", { fg = "Cyan", default = true })
-
   self._parent_win = vim.api.nvim_open_win(self._parent_buf, false, win_opts)
   vim.wo[self._parent_win].winblend = config.options.window.winblend
   vim.wo[self._parent_win].winhl = table.concat({
@@ -191,14 +192,19 @@ function M:show()
     self:_install_validation(input)
   end
 
-  -- Default highlight groups for validation error state. `default = true`
-  -- means user overrides take precedence.
-  pcall(vim.api.nvim_set_hl, 0, "InputFormFieldError", { fg = "Red", default = true })
-  pcall(vim.api.nvim_set_hl, 0, "InputFormFieldErrorBorder", { fg = "Red", default = true })
-  pcall(vim.api.nvim_set_hl, 0, "InputFormFieldErrorTitle", { fg = "Red", default = true })
-
   self:_focus(1)
   return self
+end
+
+--- Apply all configured highlight groups. Called from `show()` so live
+--- `setup({ style = { highlights = ... } })` edits take effect on the next
+--- form open.
+function M:_apply_highlights()
+  local style = config.options.style or {}
+  local hls = style.highlights or {}
+  for name, spec in pairs(hls) do
+    pcall(vim.api.nvim_set_hl, 0, name, spec)
+  end
 end
 
 --- Hide the form (close windows) but keep state so `:show()` can reopen it.

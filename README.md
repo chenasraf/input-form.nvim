@@ -217,15 +217,78 @@ validator = function(value)
 end
 ```
 
-### Highlight groups
+### Select chevrons
 
-Error rendering uses three highlight groups. Override them to re-theme:
+The glyphs shown on the right side of `select` inputs to indicate the
+dropdown state are configurable under `style.chevron`:
 
 ```lua
-vim.api.nvim_set_hl(0, "InputFormFieldError",       { fg = "#ff5555" })
-vim.api.nvim_set_hl(0, "InputFormFieldErrorBorder", { fg = "#ff5555" })
-vim.api.nvim_set_hl(0, "InputFormFieldErrorTitle",  { fg = "#ff5555", bold = true })
+require("input-form").setup({
+  style = {
+    chevron = {
+      closed = "⌄", -- default
+      open   = "⌃", -- default
+    },
+  },
+})
 ```
+
+Use whatever you like — e.g. ASCII fallbacks for terminals without good
+Unicode support:
+
+```lua
+style = { chevron = { closed = " v", open = " ^" } }
+```
+
+A leading space is recommended so the glyph doesn't sit flush against the
+label.
+
+### Highlight groups
+
+All highlight groups the plugin uses are listed under `style.highlights` in
+the config and can be overridden via `setup()`. Each entry is passed directly
+to `vim.api.nvim_set_hl(0, name, spec)`, so anything `nvim_set_hl` accepts
+works (`fg`, `bg`, `link`, `bold`, `italic`, `default`, etc.).
+
+```lua
+require("input-form").setup({
+  style = {
+    highlights = {
+      -- error state
+      InputFormFieldError       = { fg = "#ff5555", italic = true },
+      InputFormFieldErrorBorder = { fg = "#ff5555" },
+      InputFormFieldErrorTitle  = { fg = "#ff5555", bold = true },
+      -- help footer
+      InputFormHelp             = { fg = "#88ccff" },
+      -- parent frame border via link
+      InputFormBorder           = { link = "Comment" },
+    },
+  },
+})
+```
+
+Available groups:
+
+| Group                       | Purpose                                      |
+| --------------------------- | -------------------------------------------- |
+| `InputFormNormal`           | Parent form window background                |
+| `InputFormBorder`           | Parent form border                           |
+| `InputFormTitle`            | Parent form title                            |
+| `InputFormHelp`             | Footer help line (key hints)                 |
+| `InputFormField`            | Individual input field background            |
+| `InputFormFieldBorder`      | Individual input field border                |
+| `InputFormFieldTitle`       | Individual input field label (on top border) |
+| `InputFormFieldError`       | Error message footer on an invalid field     |
+| `InputFormFieldErrorBorder` | Invalid field border                         |
+| `InputFormFieldErrorTitle`  | Invalid field label                          |
+| `InputFormDropdown`         | Select dropdown background                   |
+| `InputFormDropdownActive`   | Highlighted dropdown row                     |
+
+User overrides fully **replace** the default spec per group (they are not
+deep-merged at the field level), so you don't need to re-specify
+`default = true`. Highlights are re-applied on every `form:show()`, so a
+`setup({ style = { highlights = ... } })` call that happens after the first
+form has been rendered still takes effect on the next open.
 
 ## Configuration
 

@@ -48,12 +48,22 @@ local function label_for(options, id)
   return ""
 end
 
-local CHEVRON_CLOSED = " ▼"
-local CHEVRON_OPEN = " ▲"
+-- Fallbacks in case the config module has been mutated to a malformed state.
+local DEFAULT_CHEVRON_CLOSED = "⌄"
+local DEFAULT_CHEVRON_OPEN = "⌃"
+
+local function chevron_for(open)
+  local style = config.options.style or {}
+  local chev = style.chevron or {}
+  if open then
+    return chev.open or DEFAULT_CHEVRON_OPEN
+  end
+  return chev.closed or DEFAULT_CHEVRON_CLOSED
+end
 
 local function format_display(options, id, width, open)
   local label = label_for(options, id)
-  local chevron = open and CHEVRON_OPEN or CHEVRON_CLOSED
+  local chevron = chevron_for(open)
   if not width or width <= 0 then
     return label .. chevron
   end

@@ -2,6 +2,7 @@ local helpers = dofile("tests/helpers.lua")
 local MiniTest = require("mini.test")
 
 local child = helpers.new_child_neovim()
+local eq = helpers.expect.equality
 local eq_global, eq_config = helpers.expect.global_equality, helpers.expect.config_equality
 local eq_type_global, eq_type_config =
   helpers.expect.global_type_equality, helpers.expect.config_type_equality
@@ -33,6 +34,42 @@ T["setup()"]["exposes defaults"] = function()
   eq_config(child, "keymaps.open_select", "<CR>")
   eq_config(child, "select.max_height", 10)
   eq_config(child, "multiline.height", 5)
+end
+
+T["setup()"]["exposes default highlight groups under style.highlights"] = function()
+  child.lua([[require('input-form').setup()]])
+  eq_type_config(child, "style", "table")
+  eq_type_config(child, "style.highlights", "table")
+  eq_type_config(child, "style.highlights.InputFormHelp", "table")
+  eq_config(child, "style.highlights.InputFormHelp.fg", "Cyan")
+  eq_config(child, "style.highlights.InputFormFieldErrorBorder.fg", "Red")
+  eq_config(child, "style.highlights.InputFormTitle.link", "FloatTitle")
+end
+
+T["setup()"]["user highlight overrides replace default specs per group"] = function()
+  helpers.init_plugin(
+    child,
+    [[{
+      style = {
+        highlights = {
+          InputFormHelp              = { fg = "#88ccff", italic = true },
+          InputFormFieldErrorBorder  = { fg = "#ff5555" },
+        },
+      },
+    }]]
+  )
+  -- Overridden entries take the user's values.
+  eq_config(child, "style.highlights.InputFormHelp.fg", "#88ccff")
+  eq_config(child, "style.highlights.InputFormHelp.italic", true)
+  -- And drop the default's `default = true` flag (replaced per-group, not
+  -- deep-merged).
+  eq(
+    child.lua_get([[require('input-form.config').options.style.highlights.InputFormHelp.default]]),
+    vim.NIL
+  )
+  eq_config(child, "style.highlights.InputFormFieldErrorBorder.fg", "#ff5555")
+  -- Untouched groups keep their defaults.
+  eq_config(child, "style.highlights.InputFormFieldError.fg", "Red")
 end
 
 T["setup()"]["deep-merges user options"] = function()
