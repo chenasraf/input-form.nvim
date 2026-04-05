@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/chenasraf/input-form.nvim/compare/v0.1.1...v0.1.2) (2026-04-05)
+
+
+### Features
+
+* compact dropdown popover style ([fa35e25](https://github.com/chenasraf/input-form.nvim/commit/fa35e25686e1c82ae11d8032e0da86c833ce76e6))
+* more style controls in config ([f20343f](https://github.com/chenasraf/input-form.nvim/commit/f20343f312ec6baed1b211afd0113852cee625c8))
+
 ## [0.1.1](https://github.com/chenasraf/input-form.nvim/compare/v0.1.0...v0.1.1) (2026-04-04)
 
 
