@@ -7,6 +7,7 @@ M.types = {
   multiline = require("input-form.inputs.multiline"),
   select = require("input-form.inputs.select"),
   checkbox = require("input-form.inputs.checkbox"),
+  spacer = require("input-form.inputs.spacer"),
 }
 
 --- Build an input component instance from a user-provided spec.
@@ -14,8 +15,14 @@ M.types = {
 ---@return table
 function M.build(spec)
   assert(type(spec) == "table", "input spec must be a table")
-  assert(type(spec.name) == "string" and spec.name ~= "", "input spec requires a non-empty 'name'")
   local t = spec.type or "text"
+  -- Spacers are a visual-only faux input and don't require a `name`.
+  if t ~= "spacer" then
+    assert(
+      type(spec.name) == "string" and spec.name ~= "",
+      "input spec requires a non-empty 'name'"
+    )
+  end
   local impl = M.types[t]
   assert(impl, "unknown input type: " .. tostring(t))
   local input = impl.new(spec)

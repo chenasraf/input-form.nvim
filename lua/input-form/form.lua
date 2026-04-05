@@ -89,8 +89,10 @@ function M:_compute_layout()
     if type(input.is_bordered) == "function" then
       bordered = input:is_bordered()
     end
-    local top_pad = (not bordered) and cb_pad or 0
-    local bot_pad = (not bordered) and cb_pad or 0
+    -- Only actual checkboxes get the configured blank padding. Spacers are
+    -- also borderless but their `height` is the user's exact request.
+    local top_pad = (input.type == "checkbox") and cb_pad or 0
+    local bot_pad = (input.type == "checkbox") and cb_pad or 0
     local outer_h = bordered and (h + 2) or (h + top_pad + bot_pad)
     -- Editor-row offset from `parent_row` to pass as `nvim_open_win`'s `row`
     -- parameter for this child. `row` refers to the window's OUTER top-left
@@ -203,6 +205,11 @@ function M:show()
   -- (not their border column) so everything lines up visually.
   local border = config.options.window.border
   for i, input in ipairs(self._inputs) do
+    -- Spacers are visual-only; they reserve layout rows but never mount a
+    -- window and don't participate in keymaps/validation/focus.
+    if input.type == "spacer" then
+      goto continue
+    end
     local r = layout.rows[i]
     -- Bordered children get `+1` to clear the parent's left border; their
     -- content then sits at `+2`. Borderless children shift an extra column
@@ -220,10 +227,29 @@ function M:show()
     input:mount(mount_opts)
     self:_install_keymaps(input)
     self:_install_validation(input)
+    ::continue::
   end
 
-  self:_focus(1)
+  self:_focus(self:_first_focusable() or 1)
   return self
+end
+
+--- Return `true` if `input` participates in focus navigation.
+local function is_focusable(input)
+  if input == nil then
+    return false
+  end
+  return input.focusable ~= false and input.type ~= "spacer"
+end
+
+--- Index of the first focusable input, or `nil` if none exist.
+function M:_first_focusable()
+  for i, input in ipairs(self._inputs) do
+    if is_focusable(input) then
+      return i
+    end
+  end
+  return nil
 end
 
 --- Apply all configured highlight groups. Called from `show()` so live
@@ -263,10 +289,13 @@ function M:close()
 end
 
 --- Collect current values from all inputs into a { [name] = value } table.
+--- Spacers have no name/value and are skipped.
 function M:results()
   local out = {}
   for _, input in ipairs(self._inputs) do
-    out[input.name] = input:value()
+    if input.type ~= "spacer" and input.name then
+      out[input.name] = input:value()
+    end
   end
   return out
 end
@@ -484,19 +513,44 @@ function M:_help_line()
   return table.concat(parts, "  ")
 end
 
+--- Advance from `start` by `step` (+1 or -1), wrapping, until a focusable
+--- input is found. Returns the new index, or `start` if no input is
+--- focusable.
+function M:_next_focusable(start, step)
+  local n = #self._inputs
+  if n == 0 then
+    return start
+  end
+  local idx = ((start - 1) % n + n) % n + 1
+  for _ = 1, n do
+    if is_focusable(self._inputs[idx]) then
+      return idx
+    end
+    idx = ((idx - 1 + step) % n + n) % n + 1
+  end
+  return start
+end
+
 function M:_focus(idx)
   local n = #self._inputs
+  if n == 0 then
+    return
+  end
   idx = ((idx - 1) % n + n) % n + 1
+  -- If the requested index isn't focusable, advance forward to the next one.
+  if not is_focusable(self._inputs[idx]) then
+    idx = self:_next_focusable(idx, 1)
+  end
   self._focus_idx = idx
   self._inputs[idx]:focus()
 end
 
 function M:focus_next()
-  self:_focus(self._focus_idx + 1)
+  self:_focus(self:_next_focusable(self._focus_idx + 1, 1))
 end
 
 function M:focus_prev()
-  self:_focus(self._focus_idx - 1)
+  self:_focus(self:_next_focusable(self._focus_idx - 1, -1))
 end
 
 function M:_install_keymaps(input)
