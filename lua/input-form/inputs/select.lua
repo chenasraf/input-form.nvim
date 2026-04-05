@@ -39,6 +39,10 @@ function M:height()
   return 1
 end
 
+function M:is_bordered()
+  return true
+end
+
 local function label_for(options, id)
   for _, opt in ipairs(options) do
     if opt.id == id then

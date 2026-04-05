@@ -6,6 +6,7 @@ M.types = {
   text = require("input-form.inputs.text"),
   multiline = require("input-form.inputs.multiline"),
   select = require("input-form.inputs.select"),
+  checkbox = require("input-form.inputs.checkbox"),
 }
 
 --- Build an input component instance from a user-provided spec.

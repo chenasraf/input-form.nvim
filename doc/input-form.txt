@@ -117,6 +117,8 @@ Default configuration for |input-form|.
       cancel = "<Esc>",
       --- Open the dropdown when focused on a `select` input.
       open_select = "<CR>",
+      --- Toggle the value of a `checkbox` input.
+      toggle = "<Space>",
     },
     --- Options for `select` inputs.
     select = {
@@ -137,6 +139,16 @@ Default configuration for |input-form|.
         closed = "⌄",
         --- Glyph shown when the dropdown is open.
         open = "⌃",
+      },
+      --- Glyphs shown in `checkbox` inputs.
+      checkbox = {
+        --- Shown when the box is checked.
+        checked = "☑",
+        --- Shown when the box is unchecked.
+        unchecked = "☐",
+        --- Blank rows rendered above and below a checkbox to visually separate
+        --- it from adjacent bordered inputs. Set to `0` to pack tightly.
+        padding = 1,
       },
       --- Highlight groups applied on every `form:show()`. Each entry is passed
       --- directly to `vim.api.nvim_set_hl(0, name, spec)`, so any option that
@@ -235,6 +247,19 @@ Return ~
 Require the value to parse as a number.
 Parameters ~
 {msg} `(string|nil)`
+Return ~
+`(function)`
+
+------------------------------------------------------------------------------
+                                                                   *M.checked()*
+                         `M.checked`({required}, {msg})
+Require a checkbox value to equal the given boolean. Intended for
+`checkbox` inputs ("must agree to terms", "must enable feature", ...).
+Parameters ~
+{required} `(boolean|nil)` The required value. Defaults to `true`.
+{msg} `(string|nil)` Override error message. Defaults to
+ `"(must be checked)"` when `required` is `true`, otherwise
+ `"(must be unchecked)"`.
 Return ~
 `(function)`
 

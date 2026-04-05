@@ -262,6 +262,116 @@ T["form"]["validation"]["inputs without a validator are never marked touched"] =
   eq(child.lua_get([[_G.vf._inputs[2]._error]]), vim.NIL)
 end
 
+T["form"]["checkbox"] = MiniTest.new_set()
+
+T["form"]["checkbox"]["lays out without overlapping adjacent bordered inputs"] = function()
+  child.lua([[
+    _G.cf = require('input-form').create_form({
+      inputs = {
+        { name = 'a', label = 'A', type = 'text' },
+        { name = 'b', label = 'B', type = 'checkbox' },
+        { name = 'c', label = 'C', type = 'text' },
+      },
+      on_submit = function() end,
+    })
+    _G.cf:show()
+  ]])
+  -- `content_row_offset` is the editor-row offset from `parent_row` passed
+  -- as `nvim_open_win`'s `row` parameter. `row` is the window's OUTER
+  -- top-left (border origin for bordered wins, content row for borderless),
+  -- and parent_row is itself a border origin, so every child gets a `+1` to
+  -- clear the parent's top border. Bordered text consumes 3 inner rows,
+  -- checkbox consumes 1 + 2*style.checkbox.padding (default 1). Expected
+  -- offsets: 1 (text border at inner row 0), 5 (checkbox content at inner
+  -- row 4 — one blank pad row after the text's bottom border), 7 (next
+  -- text border at inner row 6 — one blank pad row after the checkbox).
+  eq(child.lua_get([[_G.cf._layout.rows[1].content_row_offset]]), 1)
+  eq(child.lua_get([[_G.cf._layout.rows[2].content_row_offset]]), 5)
+  eq(child.lua_get([[_G.cf._layout.rows[3].content_row_offset]]), 7)
+  eq(child.lua_get([[_G.cf._layout.rows[2].bordered]]), false)
+  eq(child.lua_get([[_G.cf._layout.parent_inner_h]]), 9)
+end
+
+T["form"]["checkbox"]["is included in submit results as a boolean"] = function()
+  child.lua([[
+    _G.submit_result = nil
+    _G.cf = require('input-form').create_form({
+      inputs = {
+        { name = 'agree', label = 'Agree', type = 'checkbox', default = false },
+        { name = 'subscribe', label = 'Subscribe', type = 'checkbox', default = true },
+      },
+      on_submit = function(r) _G.submit_result = r end,
+    })
+    _G.cf:show()
+    _G.cf:submit()
+  ]])
+  eq(child.lua_get([[_G.submit_result]]), { agree = false, subscribe = true })
+end
+
+T["form"]["checkbox"]["toggle key flips value and updates result"] = function()
+  child.lua([[
+    _G.submit_result = nil
+    _G.cf = require('input-form').create_form({
+      inputs = {
+        { name = 'agree', label = 'Agree', type = 'checkbox', default = false },
+      },
+      on_submit = function(r) _G.submit_result = r end,
+    })
+    _G.cf:show()
+    vim.api.nvim_set_current_win(_G.cf._inputs[1].win)
+    vim.api.nvim_feedkeys(
+      vim.api.nvim_replace_termcodes('<Space>', true, false, true), 'x', false
+    )
+    _G.cf:submit()
+  ]])
+  eq(child.lua_get([[_G.submit_result]]), { agree = true })
+end
+
+T["form"]["checkbox"]["is toggled by open_select key too"] = function()
+  child.lua([[
+    _G.cf = require('input-form').create_form({
+      inputs = {
+        { name = 'agree', label = 'Agree', type = 'checkbox' },
+      },
+      on_submit = function() end,
+    })
+    _G.cf:show()
+    vim.api.nvim_set_current_win(_G.cf._inputs[1].win)
+    vim.api.nvim_feedkeys(
+      vim.api.nvim_replace_termcodes('<CR>', true, false, true), 'x', false
+    )
+  ]])
+  eq(child.lua_get([[_G.cf._inputs[1]:value()]]), true)
+end
+
+T["form"]["checkbox"]["validator can require checked"] = function()
+  child.lua([[
+    local V = require('input-form.validators')
+    _G.submit_result = nil
+    _G.cf = require('input-form').create_form({
+      inputs = {
+        {
+          name = 'agree',
+          label = 'Agree',
+          type = 'checkbox',
+          default = false,
+          validator = V.custom(function(v) return v == true end, 'You must agree'),
+        },
+      },
+      on_submit = function(r) _G.submit_result = r end,
+    })
+    _G.cf:show()
+    _G.cf:submit() -- should be blocked
+  ]])
+  eq(child.lua_get([[_G.submit_result]]), vim.NIL)
+  eq(child.lua_get([[_G.cf._inputs[1]._error]]), "You must agree")
+  -- Toggle on, validator re-runs (via _on_change), error clears.
+  child.lua([[_G.cf._inputs[1]:toggle()]])
+  eq(child.lua_get([[_G.cf._inputs[1]._error]]), vim.NIL)
+  child.lua([[_G.cf:submit()]])
+  eq(child.lua_get([[_G.submit_result]]), { agree = true })
+end
+
 T["form"]["keymaps are installed on each input buffer"] = function()
   child.lua([[_G.f = _G.make_form(); _G.f:show()]])
   -- <Tab> should be mapped in normal mode on the first input's buffer.

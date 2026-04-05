@@ -49,6 +49,22 @@ T["validators"]["is_number"] = function()
   eq(child.lua_get([[V.is_number()("3.14")]]), vim.NIL)
 end
 
+T["validators"]["checked"] = function()
+  -- Defaults to requiring `true`.
+  eq(child.lua_get([[V.checked()(true)]]), vim.NIL)
+  eq(child.lua_get([[V.checked()(false)]]), "(must be checked)")
+  eq(child.lua_get([[V.checked()(nil)]]), "(must be checked)")
+  -- Explicit required value.
+  eq(child.lua_get([[V.checked(true)(true)]]), vim.NIL)
+  eq(child.lua_get([[V.checked(true)(false)]]), "(must be checked)")
+  -- Require UNchecked.
+  eq(child.lua_get([[V.checked(false)(false)]]), vim.NIL)
+  eq(child.lua_get([[V.checked(false)(true)]]), "(must be unchecked)")
+  -- Custom message (second arg).
+  eq(child.lua_get([[V.checked(true, "please tick the box")(false)]]), "please tick the box")
+  eq(child.lua_get([[V.checked(false, "leave it off")(true)]]), "leave it off")
+end
+
 T["validators"]["one_of"] = function()
   eq(child.lua_get([[V.one_of({ 'a', 'b' })('c')]]), "Value is not allowed")
   eq(child.lua_get([[V.one_of({ 'a', 'b' })('a')]]), vim.NIL)

@@ -41,6 +41,8 @@ M.defaults = {
     cancel = "<Esc>",
     --- Open the dropdown when focused on a `select` input.
     open_select = "<CR>",
+    --- Toggle the value of a `checkbox` input.
+    toggle = "<Space>",
   },
   --- Options for `select` inputs.
   select = {
@@ -61,6 +63,16 @@ M.defaults = {
       closed = "⌄",
       --- Glyph shown when the dropdown is open.
       open = "⌃",
+    },
+    --- Glyphs shown in `checkbox` inputs.
+    checkbox = {
+      --- Shown when the box is checked.
+      checked = "☑",
+      --- Shown when the box is unchecked.
+      unchecked = "☐",
+      --- Blank rows rendered above and below a checkbox to visually separate
+      --- it from adjacent bordered inputs. Set to `0` to pack tightly.
+      padding = 1,
     },
     --- Highlight groups applied on every `form:show()`. Each entry is passed
     --- directly to `vim.api.nvim_set_hl(0, name, spec)`, so any option that

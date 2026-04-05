@@ -82,6 +82,28 @@ function M.is_number(msg)
   end
 end
 
+--- Require a checkbox value to equal the given boolean. Intended for
+--- `checkbox` inputs ("must agree to terms", "must enable feature", ...).
+---@param required boolean|nil The required value. Defaults to `true`.
+---@param msg string|nil Override error message. Defaults to
+---  `"(must be checked)"` when `required` is `true`, otherwise
+---  `"(must be unchecked)"`.
+---@return function
+function M.checked(required, msg)
+  if required == nil then
+    required = true
+  end
+  if type(msg) ~= "string" then
+    msg = required and "(must be checked)" or "(must be unchecked)"
+  end
+  return function(value)
+    if value == required then
+      return nil
+    end
+    return msg
+  end
+end
+
 --- Require the value to be one of the given choices (useful for text inputs
 --- that must match a fixed allowlist; select inputs should use their
 --- `options` list instead).

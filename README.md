@@ -11,7 +11,7 @@ floating window. Create a single window containing multiple typed inputs
 
 - Bordered floating window with optional title
 - Keyboard-navigable: `<Tab>` / `<S-Tab>` to move between inputs
-- Input types: `text`, `multiline`, `select`
+- Input types: `text`, `multiline`, `select`, `checkbox`
 - Select dropdowns open with `<CR>`; arrows navigate; `<CR>` confirms
 - Submit with `<C-s>` — results delivered as a `{ [name] = value }` table
 - Cancel with `<Esc>`
@@ -141,6 +141,30 @@ All inputs share `name` (string, required — the key in the result table) and
 
 `value()` returns the selected `id` (not the label).
 
+#### `checkbox`
+
+```lua
+{ name = "agree", label = "I agree", type = "checkbox", default = false }
+```
+
+Unlike text/multiline/select, checkboxes render **inline** — no border, no
+separate label row. The glyph sits immediately next to the label, and any
+validation error is appended on the same line:
+
+```
+☐ I agree (must be checked)
+```
+
+- `default` (optional) — boolean (defaults to `false`).
+- `value()` returns a boolean.
+- Toggled with the configured `keymaps.toggle` key (default `<Space>`) or
+  the `keymaps.open_select` key (default `<CR>`) — both work so users get
+  a consistent "interact with this field" key.
+- Glyphs come from `style.checkbox.{checked, unchecked}` (defaults
+  `"☑"` / `"☐"`).
+- Pair with `validators.checked()` to require the box to be ticked (see
+  [Validation](#validation)).
+
 ## Validation
 
 Each input spec accepts an optional `validator` function:
@@ -170,6 +194,10 @@ V.min_length(n, [msg])              -- at least `n` characters
 V.max_length(n, [msg])              -- at most `n` characters
 V.matches(lua_pattern, [msg])       -- match a Lua pattern
 V.is_number([msg])                  -- tonumber() must succeed
+V.checked([required], [msg])        -- checkbox must equal `required`
+                                    --   (default true; default messages
+                                    --   "(must be checked)" /
+                                    --   "(must be unchecked)")
 V.one_of({ "a", "b", ... }, [msg])  -- value must be in the list
 V.custom(predicate, msg)            -- wrap a `fun(v): boolean` predicate
 V.chain(v1, v2, ...)                -- run validators in order, first error wins
@@ -216,6 +244,24 @@ validator = function(value)
   end
 end
 ```
+
+### Checkbox glyphs
+
+Override the characters rendered by `checkbox` inputs via `style.checkbox`:
+
+```lua
+require("input-form").setup({
+  style = {
+    checkbox = {
+      checked   = "☑", -- default
+      unchecked = "☐", -- default
+    },
+  },
+})
+```
+
+Alternatives that render well in most fonts: `[x]` / `[ ]`, `✔` / `·`,
+`●` / `○`.
 
 ### Select chevrons
 
@@ -311,6 +357,7 @@ require("input-form").setup({
     submit = "<C-s>",
     cancel = "<Esc>",
     open_select = "<CR>",
+    toggle = "<Space>",
   },
   select = {
     max_height = 10,

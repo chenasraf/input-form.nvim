@@ -1,6 +1,7 @@
 Default	input-form.txt	/*Default*
 M.Form	input-form.txt	/*M.Form*
 M.chain()	input-form.txt	/*M.chain()*
+M.checked()	input-form.txt	/*M.checked()*
 M.config	input-form.txt	/*M.config*
 M.custom()	input-form.txt	/*M.custom()*
 M.is_number()	input-form.txt	/*M.is_number()*

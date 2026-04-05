@@ -72,17 +72,39 @@ function M:_compute_layout()
 
   local parent_inner_w = outer_width - 2 -- minus parent border
   local child_outer_w = parent_inner_w - pad_h * 2
-  local child_inner_w = child_outer_w - 2 -- minus child border
+  local child_inner_w = child_outer_w - 2 -- minus child border (for bordered inputs)
+
+  -- Extra blank rows rendered above/below a checkbox (borderless input) so
+  -- its glyph doesn't butt directly against an adjacent bordered input's
+  -- border. Configurable via `style.checkbox.padding`.
+  local cb_pad = (opts.style and opts.style.checkbox and opts.style.checkbox.padding) or 0
 
   local rows = {}
   local inner_h = pad_top
   for i, input in ipairs(self._inputs) do
     local h = input:height()
+    -- NB: avoid the `a and b or c` idiom — `is_bordered()` legitimately
+    -- returns `false` and that must not get coerced back to the default.
+    local bordered = true
+    if type(input.is_bordered) == "function" then
+      bordered = input:is_bordered()
+    end
+    local top_pad = (not bordered) and cb_pad or 0
+    local bot_pad = (not bordered) and cb_pad or 0
+    local outer_h = bordered and (h + 2) or (h + top_pad + bot_pad)
+    -- Editor-row offset from `parent_row` to pass as `nvim_open_win`'s `row`
+    -- parameter for this child. `row` refers to the window's OUTER top-left
+    -- (i.e. the border origin for bordered windows, the content row for
+    -- borderless windows). Parent_row is itself a border origin, so every
+    -- child needs a `+1` to clear the parent's top border — matching the
+    -- `+1` already applied on the column axis in `show()`.
+    local content_offset = inner_h + 1 + top_pad
     table.insert(rows, {
-      top_border_offset = inner_h, -- row inside parent content where child's top border sits
+      bordered = bordered,
+      content_row_offset = content_offset,
       value_height = h,
     })
-    inner_h = inner_h + h + 2 -- child's full outer height (content + 2 border rows)
+    inner_h = inner_h + outer_h
     if i < #self._inputs then
       inner_h = inner_h + sep
     end
@@ -104,6 +126,7 @@ function M:_compute_layout()
     parent_col = parent_col,
     parent_inner_w = parent_inner_w,
     parent_inner_h = inner_h,
+    child_outer_w = child_outer_w,
     child_inner_w = child_inner_w,
     pad_h = pad_h,
     rows = rows,
@@ -174,20 +197,27 @@ function M:show()
     "FloatFooter:InputFormHelp",
   }, ",")
 
-  -- Mount each input as its own bordered child floating window.
+  -- Mount each input as its own floating window. Bordered inputs get their
+  -- own border + label; borderless inputs (e.g. checkbox) render inline but
+  -- still align their CONTENT column with the bordered siblings' content
+  -- (not their border column) so everything lines up visually.
   local border = config.options.window.border
   for i, input in ipairs(self._inputs) do
     local r = layout.rows[i]
-    -- Child's content origin: inside the parent content area, offset by the
-    -- row's top_border_offset plus one row for the child's own top border;
-    -- and one col inside the parent plus horizontal padding plus one for the
-    -- child's own left border.
-    input:mount({
-      row = layout.parent_row + r.top_border_offset + 1,
-      col = layout.parent_col + layout.pad_h + 1,
+    -- Bordered children get `+1` to clear the parent's left border; their
+    -- content then sits at `+2`. Borderless children shift an extra column
+    -- so their content column lines up with the bordered siblings' content
+    -- column (not their border column).
+    local col_offset = r.bordered and 1 or 2
+    local mount_opts = {
+      row = layout.parent_row + r.content_row_offset,
+      col = layout.parent_col + layout.pad_h + col_offset,
       width = layout.child_inner_w,
-      border = border,
-    })
+    }
+    if r.bordered then
+      mount_opts.border = border
+    end
+    input:mount(mount_opts)
     self:_install_keymaps(input)
     self:_install_validation(input)
   end
@@ -267,7 +297,8 @@ function M:_validate_all()
     if input.validator then
       input._touched = true
       local err = input.validator(input:value())
-      if err == "" then
+      -- Only strings count as errors; nil / false / other types = no error.
+      if type(err) ~= "string" or err == "" then
         err = nil
       end
       input._error = err
@@ -348,7 +379,8 @@ function M:_validate_input(input)
     return
   end
   local err = input.validator(input:value())
-  if err == "" then
+  -- Only strings count as errors; nil / false / other types = no error.
+  if type(err) ~= "string" or err == "" then
     err = nil
   end
   input._error = err
@@ -362,6 +394,20 @@ function M:_render_validation(input)
   if not (win and vim.api.nvim_win_is_valid(win)) then
     return
   end
+
+  -- Borderless inputs (checkbox) render the error inline — they already read
+  -- `self._error` from their own `_render_display()`.
+  local bordered = true
+  if type(input.is_bordered) == "function" then
+    bordered = input:is_bordered()
+  end
+  if not bordered then
+    if type(input._render_display) == "function" then
+      input:_render_display()
+    end
+    return
+  end
+
   local has_error = input._error ~= nil
 
   if has_error then
@@ -418,16 +464,20 @@ function M:_help_line()
   if nav then
     table.insert(parts, nav .. " navigate")
   end
-  -- Only advertise open_select if the form actually has a select input.
-  local has_select = false
+  -- Only advertise type-specific keys if the form actually has such an input.
+  local has_select, has_checkbox = false, false
   for _, input in ipairs(self._inputs) do
     if input.type == "select" then
       has_select = true
-      break
+    elseif input.type == "checkbox" then
+      has_checkbox = true
     end
   end
   if has_select then
     add(km.open_select, "open")
+  end
+  if has_checkbox then
+    add(km.toggle, "toggle")
   end
   add(km.submit, "submit")
   add(km.cancel, "cancel")
@@ -485,6 +535,20 @@ function M:_install_keymaps(input)
       input:open_dropdown()
     end)
     -- Block insert mode on the select display buffer.
+    vim.keymap.set("n", "i", "<Nop>", { buffer = buf, nowait = true, silent = true })
+    vim.keymap.set("n", "a", "<Nop>", { buffer = buf, nowait = true, silent = true })
+  elseif input.type == "checkbox" then
+    -- Toggle on the configured toggle key AND on open_select so users who
+    -- prefer <CR> for all interactions get a single key for every field.
+    map("n", km.toggle, function()
+      input:toggle()
+    end)
+    if km.open_select and km.open_select ~= km.toggle then
+      map("n", km.open_select, function()
+        input:toggle()
+      end)
+    end
+    -- Block insert mode on the checkbox display buffer.
     vim.keymap.set("n", "i", "<Nop>", { buffer = buf, nowait = true, silent = true })
     vim.keymap.set("n", "a", "<Nop>", { buffer = buf, nowait = true, silent = true })
   elseif input.type == "text" then

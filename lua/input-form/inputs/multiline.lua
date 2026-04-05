@@ -27,6 +27,10 @@ function M:height()
   return self._height
 end
 
+function M:is_bordered()
+  return true
+end
+
 function M:mount(layout)
   self.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[self.buf].buftype = "nofile"

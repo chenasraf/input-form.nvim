@@ -24,6 +24,10 @@ function M:height()
   return 1
 end
 
+function M:is_bordered()
+  return true
+end
+
 --- Create the backing buffer and floating window.
 ---@param layout table { row, col, width }
 function M:mount(layout)
