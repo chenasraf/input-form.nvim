@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/chenasraf/input-form.nvim/compare/v0.1.2...v0.1.3) (2026-04-05)
+
+
+### Features
+
+* checkbox field ([94a784f](https://github.com/chenasraf/input-form.nvim/commit/94a784f64ce9256a1f9ac6ada7e36fbb4feb9573))
+* spacer ([0424bdf](https://github.com/chenasraf/input-form.nvim/commit/0424bdf63373f0bf571bb4e48e43a1b855bb4ad6))
+
 ## [0.1.2](https://github.com/chenasraf/input-form.nvim/compare/v0.1.1...v0.1.2) (2026-04-05)
 
 
