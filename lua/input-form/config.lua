@@ -37,12 +37,16 @@ M.defaults = {
     prev = "<S-Tab>",
     --- Submit the form and invoke `on_submit(results)`.
     submit = "<C-s>",
-    --- Cancel the form and invoke `on_cancel()` if provided.
-    cancel = "<Esc>",
+    --- Cancel the form and invoke `on_cancel()` if provided. Accepts a
+    --- single key string or a list of keys — all listed keys trigger cancel.
+    cancel = { "<Esc>", "q" },
     --- Open the dropdown when focused on a `select` input.
     open_select = "<CR>",
     --- Toggle the value of a `checkbox` input.
     toggle = "<Space>",
+    --- Toggle a help popup listing every active keymap. The popup opens
+    --- directly below the form window and closes on the same key.
+    help = "?",
   },
   --- Options for `select` inputs.
   select = {

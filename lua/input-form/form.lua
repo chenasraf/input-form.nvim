@@ -50,12 +50,12 @@ function M:_compute_layout()
   -- `width` is the parent's OUTER width (i.e. visible width including border).
   local outer_width = utils.resolve_width(self._width or opts.window.width)
 
-  -- Grow the window to fit the footer help line if the user's configured
-  -- width is too narrow. The footer string is " <help> " so we need at least
-  -- #help + 2 (leading/trailing space) + 2 (corners) cells of outer width.
-  local help = self:_help_line()
-  if help and help ~= "" then
-    local needed = vim.fn.strdisplaywidth(help) + 4
+  -- Grow the window to fit the footer hint if the user's configured width
+  -- is too narrow. The footer string is " <hint> " so we need at least
+  -- #hint + 2 (leading/trailing space) + 2 (corners) cells of outer width.
+  local hint = self:_help_hint()
+  if hint and hint ~= "" then
+    local needed = vim.fn.strdisplaywidth(hint) + 4
     if outer_width < needed then
       outer_width = needed
     end
@@ -184,10 +184,10 @@ function M:show()
     win_opts.title_pos = config.options.window.title_pos
   end
   if vim.fn.has("nvim-0.10") == 1 then
-    local footer = self:_help_line()
+    local footer = self:_help_hint()
     if footer and footer ~= "" then
       win_opts.footer = " " .. footer .. " "
-      win_opts.footer_pos = "center"
+      win_opts.footer_pos = "right"
     end
   end
   self._parent_win = vim.api.nvim_open_win(self._parent_buf, false, win_opts)
@@ -268,6 +268,7 @@ function M:hide()
   if not self._visible then
     return
   end
+  self:_close_help()
   for _, input in ipairs(self._inputs) do
     input:unmount()
   end
@@ -475,23 +476,57 @@ function M:_render_validation(input)
   end
 end
 
---- Build a help-line string describing the active keymaps.
-function M:_help_line()
+--- Format a keymap value (string or list of strings) for display. Returns
+--- `nil` if the value is effectively empty / disabled.
+local function format_keys(val)
+  if not val or val == false or val == "" then
+    return nil
+  end
+  if type(val) == "table" then
+    local parts = {}
+    for _, k in ipairs(val) do
+      if k and k ~= false and k ~= "" then
+        table.insert(parts, k)
+      end
+    end
+    if #parts == 0 then
+      return nil
+    end
+    return table.concat(parts, " / ")
+  end
+  return tostring(val)
+end
+
+--- Short footer hint shown on the form's bottom border (e.g. `"? help"`).
+--- Returns `nil` if the help keymap is disabled.
+function M:_help_hint()
+  local key = format_keys(config.options.keymaps.help)
+  if not key then
+    return nil
+  end
+  return key .. " help"
+end
+
+--- Collect `{ keys, description }` pairs for every active keymap, filtered
+--- to what this form actually uses. Consumed by the help popup.
+function M:_help_entries()
   local km = config.options.keymaps
-  local parts = {}
+  local entries = {}
   local function add(keys, desc)
-    if keys and keys ~= false and keys ~= "" then
-      table.insert(parts, keys .. " " .. desc)
+    local display = format_keys(keys)
+    if display then
+      table.insert(entries, { display, desc })
     end
   end
+  local nxt, prv = format_keys(km.next), format_keys(km.prev)
   local nav
-  if km.next and km.prev then
-    nav = km.next .. "/" .. km.prev
+  if nxt and prv then
+    nav = nxt .. " / " .. prv
   else
-    nav = km.next or km.prev
+    nav = nxt or prv
   end
   if nav then
-    table.insert(parts, nav .. " navigate")
+    table.insert(entries, { nav, "navigate fields" })
   end
   -- Only advertise type-specific keys if the form actually has such an input.
   local has_select, has_checkbox = false, false
@@ -503,14 +538,180 @@ function M:_help_line()
     end
   end
   if has_select then
-    add(km.open_select, "open")
+    add(km.open_select, "open dropdown")
   end
   if has_checkbox then
-    add(km.toggle, "toggle")
+    add(km.toggle, "toggle checkbox")
   end
-  add(km.submit, "submit")
-  add(km.cancel, "cancel")
-  return table.concat(parts, "  ")
+  add(km.submit, "submit form")
+  add(km.cancel, "cancel form")
+  add(km.help, "toggle this help")
+  return entries
+end
+
+--- Build the wrapped lines of the help popup given a maximum width (the
+--- popup's content width). Each keymap occupies its own row formatted as
+--- `"<keys>  <description>"` with keys right-padded to a common column so
+--- descriptions line up. If an entry exceeds `max_w` the description wraps
+--- onto a hanging indent.
+function M:_help_lines(max_w)
+  local entries = self:_help_entries()
+  if #entries == 0 then
+    return {}
+  end
+  -- Cap the key column so a single oversized key doesn't eat the whole row.
+  local max_key_w = 0
+  for _, e in ipairs(entries) do
+    local w = vim.fn.strdisplaywidth(e[1])
+    if w > max_key_w then
+      max_key_w = w
+    end
+  end
+  max_key_w = math.min(max_key_w, math.max(4, math.floor(max_w / 2)))
+
+  local gap = "  "
+  local gap_w = vim.fn.strdisplaywidth(gap)
+  local indent = string.rep(" ", max_key_w + gap_w)
+
+  local lines = {}
+  for _, e in ipairs(entries) do
+    local keys, desc = e[1], e[2]
+    local key_w = vim.fn.strdisplaywidth(keys)
+    local pad = string.rep(" ", math.max(0, max_key_w - key_w))
+    local prefix = keys .. pad .. gap
+    -- Wrap the description into the remaining width. `avail` is the
+    -- width available for description text (max_w minus key column).
+    local avail = math.max(1, max_w - vim.fn.strdisplaywidth(prefix))
+    local chunks = M._wrap_text(desc, avail)
+    table.insert(lines, prefix .. (chunks[1] or ""))
+    for i = 2, #chunks do
+      table.insert(lines, indent .. chunks[i])
+    end
+  end
+  return lines
+end
+
+--- Word-wrap `text` to rows no wider than `width` display cells. Falls back
+--- to a hard character cut for a single token longer than `width`.
+function M._wrap_text(text, width)
+  if width <= 0 then
+    return { text }
+  end
+  if vim.fn.strdisplaywidth(text) <= width then
+    return { text }
+  end
+  local out = {}
+  local line = ""
+  for word in string.gmatch(text, "%S+") do
+    if line == "" then
+      line = word
+    else
+      local candidate = line .. " " .. word
+      if vim.fn.strdisplaywidth(candidate) <= width then
+        line = candidate
+      else
+        table.insert(out, line)
+        line = word
+      end
+    end
+    -- Single word wider than width: hard-cut on character boundaries.
+    while vim.fn.strdisplaywidth(line) > width do
+      local cut = vim.fn.strcharpart(line, 0, width)
+      table.insert(out, cut)
+      line = vim.fn.strcharpart(line, vim.fn.strchars(cut))
+    end
+  end
+  if line ~= "" then
+    table.insert(out, line)
+  end
+  return out
+end
+
+--- Open the help popup directly below the form window. No-op if already
+--- open or if the form is not visible.
+function M:_open_help()
+  if not self._visible or not self._layout then
+    return
+  end
+  if self._help_win and vim.api.nvim_win_is_valid(self._help_win) then
+    return
+  end
+  local layout = self._layout
+  -- Match the parent's outer width so borders align vertically.
+  local content_w = layout.parent_inner_w
+  local lines = self:_help_lines(content_w)
+  if #lines == 0 then
+    return
+  end
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].buftype = "nofile"
+  vim.bo[buf].bufhidden = "wipe"
+  vim.bo[buf].swapfile = false
+  utils.mark_form_buffer(buf)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = false
+
+  -- Parent's outer bottom-border row = parent_row + parent_inner_h + 1
+  -- (parent_row is the border origin). The help popup's top border sits
+  -- one row below that.
+  local help_row = layout.parent_row + layout.parent_inner_h + 2
+  local help_col = layout.parent_col
+
+  -- If the popup would overflow the editor below the form, flip it above.
+  local outer_h = #lines + 2
+  local max_row = vim.o.lines - outer_h - 2
+  if help_row > max_row then
+    local above = layout.parent_row - outer_h
+    if above >= 0 then
+      help_row = above
+    else
+      help_row = math.max(0, max_row)
+    end
+  end
+
+  local win = vim.api.nvim_open_win(buf, false, {
+    relative = "editor",
+    row = help_row,
+    col = help_col,
+    width = content_w,
+    height = #lines,
+    style = "minimal",
+    border = config.options.window.border,
+    focusable = false,
+    zindex = 60,
+    title = " Help ",
+    title_pos = "left",
+  })
+  vim.wo[win].winblend = config.options.window.winblend
+  vim.wo[win].winhl = table.concat({
+    "NormalFloat:InputFormNormal",
+    "FloatBorder:InputFormBorder",
+    "FloatTitle:InputFormTitle",
+  }, ",")
+  self._help_win = win
+  self._help_buf = buf
+end
+
+--- Close the help popup. No-op if not open.
+function M:_close_help()
+  if self._help_win and vim.api.nvim_win_is_valid(self._help_win) then
+    pcall(vim.api.nvim_win_close, self._help_win, true)
+  end
+  if self._help_buf and vim.api.nvim_buf_is_valid(self._help_buf) then
+    pcall(vim.api.nvim_buf_delete, self._help_buf, { force = true })
+  end
+  self._help_win = nil
+  self._help_buf = nil
+end
+
+--- Toggle the help popup.
+function M:toggle_help()
+  if self._help_win and vim.api.nvim_win_is_valid(self._help_win) then
+    self:_close_help()
+  else
+    self:_open_help()
+  end
 end
 
 --- Advance from `start` by `step` (+1 or -1), wrapping, until a focusable
@@ -559,9 +760,17 @@ function M:_install_keymaps(input)
   if not buf then
     return
   end
+  -- `lhs` may be a single key string or a list of keys. All listed keys
+  -- are bound to the same callback.
   local function map(mode, lhs, fn)
-    if lhs and lhs ~= false then
-      vim.keymap.set(mode, lhs, fn, { buffer = buf, nowait = true, silent = true })
+    if not lhs or lhs == false or lhs == "" then
+      return
+    end
+    local keys = type(lhs) == "table" and lhs or { lhs }
+    for _, k in ipairs(keys) do
+      if k and k ~= false and k ~= "" then
+        vim.keymap.set(mode, k, fn, { buffer = buf, nowait = true, silent = true })
+      end
     end
   end
 
@@ -582,6 +791,12 @@ function M:_install_keymaps(input)
   -- Cancel only in normal mode to avoid clobbering <Esc> used to leave insert mode.
   map("n", km.cancel, function()
     self:cancel()
+  end)
+
+  -- Help popup toggle (normal mode only so `?` stays usable inside text/
+  -- multiline inputs during insert).
+  map("n", km.help, function()
+    self:toggle_help()
   end)
 
   if input.type == "select" then
