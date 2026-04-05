@@ -173,17 +173,40 @@ function M:open_dropdown()
   local max_h = config.options.select.max_height
   local height = math.min(#lines, max_h)
 
-  -- Position the dropdown's top border immediately beneath the input's bottom
-  -- border. Content origin row = (input content row) + (input bottom border = 1)
-  -- + (dropdown top border = 1) + 1 = self._layout.row + 3.
+  -- Prefer stitching the dropdown's top border into the select's bottom
+  -- border for a compact, merged look:
+  --
+  --   ╭─ Label ─────╮
+  --   │ Option 1  ⌃ │
+  --   ├─────────────┤   <- shared row (dropdown's top border with T-junction
+  --   │ Option 1    │      connectors, overlaid on the select's bottom)
+  --   │ Option 2    │
+  --   ╰─────────────╯
+  --
+  -- The dropdown is positioned so its top border row coincides with the
+  -- select's bottom border row. With a higher zindex, the dropdown's top
+  -- border (├─┤ / ╠═╣) wins, producing the visible T-junctions.
+  local cfg_border = config.options.window.border
+  local merged_border = utils.merged_top_border(cfg_border)
+  local dropdown_row, dropdown_border
+  if merged_border then
+    dropdown_row = self._layout.row + 2
+    dropdown_border = merged_border
+  else
+    -- Fallback for unmergeable borders (`"none"`, `"shadow"`, ...): keep the
+    -- dropdown on its own, one row below the select.
+    dropdown_row = self._layout.row + 3
+    dropdown_border = cfg_border
+  end
+
   self.dropdown_win = vim.api.nvim_open_win(self.dropdown_buf, true, {
     relative = "editor",
-    row = self._layout.row + 3,
+    row = dropdown_row,
     col = self._layout.col,
     width = self._layout.width,
     height = height,
     style = "minimal",
-    border = "rounded",
+    border = dropdown_border,
     focusable = true,
     zindex = 100,
   })

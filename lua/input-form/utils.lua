@@ -43,6 +43,57 @@ end
 --- their UI plugins' exclusion lists as a fallback.
 M.FORM_FILETYPE = "input-form"
 
+--- Character sets for the built-in border styles accepted by `nvim_open_win`.
+--- Order is clockwise from top-left: TL, T, TR, R, BR, B, BL, L.
+local BORDER_CHARS = {
+  rounded = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
+  single = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
+  double = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
+  solid = { " ", " ", " ", " ", " ", " ", " ", " " },
+}
+
+-- T-junction connectors used to replace the top corners when stitching two
+-- boxes together (the bottom of box A and the top of box B share a row).
+local MERGE_CONNECTORS = {
+  rounded = { left = "├", right = "┤" },
+  single = { left = "├", right = "┤" },
+  double = { left = "╠", right = "╣" },
+  solid = { left = " ", right = " " },
+}
+
+--- Build an 8-element border array whose top row is a T-junction stitching
+--- into the bottom of a parent box above it. Accepts either one of the
+--- built-in border style names or an existing 8-element border array.
+---
+--- Returns `nil` for unrecognised / non-mergeable borders (e.g. `"none"`,
+--- `"shadow"`) so the caller can fall back to an unmerged layout.
+---@param border string|table
+---@return table|nil
+function M.merged_top_border(border)
+  local chars, connectors
+  if type(border) == "string" then
+    chars = BORDER_CHARS[border]
+    connectors = MERGE_CONNECTORS[border]
+  elseif type(border) == "table" and #border == 8 then
+    chars = vim.deepcopy(border)
+    -- Best-effort fallback for custom arrays: use the straight T's.
+    connectors = { left = "├", right = "┤" }
+  end
+  if not chars or not connectors then
+    return nil
+  end
+  return {
+    connectors.left,
+    chars[2],
+    connectors.right,
+    chars[4],
+    chars[5],
+    chars[6],
+    chars[7],
+    chars[8],
+  }
+end
+
 local _excluded_registered = false
 
 -- Append `ft` to a list-shaped config field if missing.

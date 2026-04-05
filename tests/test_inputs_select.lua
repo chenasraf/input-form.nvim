@@ -113,6 +113,27 @@ T["select input"]["uses custom chevrons from config"] = function()
   helpers.expect.no_match(open_line, "⌃")
 end
 
+T["select input"]["dropdown border merges into select's bottom border"] = function()
+  -- `rounded` default → T-junctions are ├ and ┤.
+  child.lua([[
+    _G.t = _G.mk('a')
+    _G.t:mount({ row = 5, col = 5, width = 30 })
+    _G.t._layout = { row = 10, col = 5, width = 30 }
+    _G.t:open_dropdown()
+  ]])
+  local cfg = child.lua_get([[vim.api.nvim_win_get_config(_G.t.dropdown_win)]])
+  -- Dropdown row must overlap the select's bottom border row (= layout.row + 2
+  -- for the content origin, putting the top border at layout.row + 1).
+  eq(cfg.row, 12)
+  -- Border is an 8-element array with T-junctions in the top corners.
+  eq(type(cfg.border), "table")
+  -- nvim_win_get_config returns borders as { { char, hl_group }, ... }.
+  local tl = type(cfg.border[1]) == "table" and cfg.border[1][1] or cfg.border[1]
+  local tr = type(cfg.border[3]) == "table" and cfg.border[3][1] or cfg.border[3]
+  eq(tl, "├")
+  eq(tr, "┤")
+end
+
 T["select input"]["rejects empty options list"] = function()
   local ok = child.lua_get([[
     (function()
