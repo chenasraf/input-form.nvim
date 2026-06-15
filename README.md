@@ -106,6 +106,37 @@ end)
 | `form:submit()`  | Gather values, close, and invoke `on_submit(results)`.                 |
 | `form:cancel()`  | Close and invoke `on_cancel()` if provided.                            |
 | `form:results()` | Return `{ [name] = value }` without closing.                           |
+| `form:redraw()`  | Tear down and re-open the form in place, preserving focus and values.  |
+
+#### `form:redraw()`
+
+Use after a callback (`on_activate`, autocommand, external code) has mutated the form — added or
+removed inputs, changed a label, swapped styling — and you want the on-screen layout to catch up.
+No-op if the form isn't currently visible.
+
+Preserved across the redraw:
+
+- Focused input index (if it's still in range; otherwise wraps).
+- Cached input values (each input flushes its current value during `unmount()` before the window is
+  destroyed, so text/multiline content is not lost).
+- The original window + editor mode captured on `:show()`, so a subsequent `:hide()` / `:cancel()` /
+  `:submit()` still restores the user's original state.
+- Help popup open/closed state.
+
+```lua
+local form
+form = require("input-form").create_form({
+  inputs = {
+    { name = "first", label = "First", type = "text" },
+    { type = "button", label = "Add field", on_activate = function(f)
+        table.insert(f._inputs, require("input-form.inputs").build({
+          name = "extra", label = "Extra", type = "text",
+        }))
+        f:redraw()
+      end },
+  },
+}):show()
+```
 
 ### Input spec reference
 

@@ -147,8 +147,14 @@ function M:show()
   -- who was in normal mode before opening the form stays in insert mode after
   -- the form closes (because the form's text inputs leave the editor in
   -- insert mode when they're focused).
-  self._prev_win = vim.api.nvim_get_current_win()
-  self._prev_mode = vim.api.nvim_get_mode().mode
+  --
+  -- Skip the capture if we already have it (e.g. `redraw()` tore the windows
+  -- down and is calling us back in), so we restore to the user's ORIGINAL
+  -- window/mode rather than to the now-torn-down form window.
+  if self._prev_mode == nil then
+    self._prev_win = vim.api.nvim_get_current_win()
+    self._prev_mode = vim.api.nvim_get_mode().mode
+  end
 
   -- Lazy: teach known UI plugins (nvim-scrollbar, satellite, ...) to skip
   -- form buffers. Runs once per nvim session.
@@ -270,11 +276,10 @@ function M:_apply_highlights()
   end
 end
 
---- Hide the form (close windows) but keep state so `:show()` can reopen it.
-function M:hide()
-  if not self._visible then
-    return
-  end
+--- Tear down every window/buffer owned by the form. Shared by `hide()` and
+--- `redraw()`. Does NOT touch `_prev_win` / `_prev_mode` — the caller decides
+--- whether to restore the editor's prior state.
+function M:_teardown_windows()
   self:_close_help()
   for _, input in ipairs(self._inputs) do
     input:unmount()
@@ -288,8 +293,43 @@ function M:hide()
   self._parent_win = nil
   self._parent_buf = nil
   self._visible = false
+end
 
+--- Hide the form (close windows) but keep state so `:show()` can reopen it.
+function M:hide()
+  if not self._visible then
+    return
+  end
+  self:_teardown_windows()
   self:_restore_editor_state()
+end
+
+--- Tear the form down and re-open it in place. Use when callbacks mutate the
+--- form (input list, labels, styles, ...) and you need the layout to catch
+--- up. No-op if the form is not currently visible.
+---
+--- Preserves: focused-input index, the captured editor state used by
+--- `:hide()`'s mode restoration, and whether the help popup was open.
+--- Cached input values survive because each input's `unmount()` flushes
+--- them onto the input object before the window goes away.
+function M:redraw()
+  if not self._visible then
+    return
+  end
+  local saved_focus = self._focus_idx
+  local help_was_open = self._help_win and vim.api.nvim_win_is_valid(self._help_win) and true
+    or false
+
+  self:_teardown_windows()
+  self:show()
+
+  -- `show()` focuses the first focusable input; put focus back where it was.
+  if saved_focus then
+    self:_focus(saved_focus)
+  end
+  if help_was_open then
+    self:_open_help()
+  end
 end
 
 --- Restore the window + mode that were active before `show()` was called.
