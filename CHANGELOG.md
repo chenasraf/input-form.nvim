@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.4](https://github.com/chenasraf/input-form.nvim/compare/v0.1.3...v0.1.4) (2026-06-15)
+
+
+### Features
+
+* **form:** add form:redraw() method ([8e456c7](https://github.com/chenasraf/input-form.nvim/commit/8e456c769bda11d9b8e1c8d72210e53ee7243358))
+* **form:** restore editor mode on close ([790809a](https://github.com/chenasraf/input-form.nvim/commit/790809a03372e52cb54f9f590320b49926fc82d9))
+* **inputs:** add button control ([e7e0720](https://github.com/chenasraf/input-form.nvim/commit/e7e0720fc56e69a68140daee158dde1e9c607604))
+
 ## [0.1.3](https://github.com/chenasraf/input-form.nvim/compare/v0.1.2...v0.1.3) (2026-04-05)
 
 
