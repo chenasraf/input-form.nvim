@@ -333,11 +333,11 @@ function M:close()
 end
 
 --- Collect current values from all inputs into a { [name] = value } table.
---- Spacers have no name/value and are skipped.
+--- Spacers and buttons have no value and are skipped.
 function M:results()
   local out = {}
   for _, input in ipairs(self._inputs) do
-    if input.type ~= "spacer" and input.name then
+    if input.type ~= "spacer" and input.type ~= "button" and input.name then
       out[input.name] = input:value()
     end
   end
@@ -572,12 +572,14 @@ function M:_help_entries()
     table.insert(entries, { nav, "navigate fields" })
   end
   -- Only advertise type-specific keys if the form actually has such an input.
-  local has_select, has_checkbox = false, false
+  local has_select, has_checkbox, has_button = false, false, false
   for _, input in ipairs(self._inputs) do
     if input.type == "select" then
       has_select = true
     elseif input.type == "checkbox" then
       has_checkbox = true
+    elseif input.type == "button" then
+      has_button = true
     end
   end
   if has_select then
@@ -585,6 +587,9 @@ function M:_help_entries()
   end
   if has_checkbox then
     add(km.toggle, "toggle checkbox")
+  end
+  if has_button then
+    add(km.activate, "activate button")
   end
   add(km.submit, "submit form")
   add(km.cancel, "cancel form")
@@ -870,6 +875,13 @@ function M:_install_keymaps(input)
     map("i", "<CR>", function()
       vim.cmd("stopinsert")
     end)
+  elseif input.type == "button" then
+    map("n", km.activate, function()
+      input:activate(self)
+    end)
+    -- Block insert mode on the button display buffer.
+    vim.keymap.set("n", "i", "<Nop>", { buffer = buf, nowait = true, silent = true })
+    vim.keymap.set("n", "a", "<Nop>", { buffer = buf, nowait = true, silent = true })
   end
 end
 

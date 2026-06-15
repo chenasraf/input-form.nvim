@@ -44,6 +44,8 @@ M.defaults = {
     open_select = "<CR>",
     --- Toggle the value of a `checkbox` input.
     toggle = "<Space>",
+    --- Activate a `button` input (invokes its `on_activate` callback).
+    activate = { "<CR>", "<Space>" },
     --- Toggle a help popup listing every active keymap. The popup opens
     --- directly below the form window and closes on the same key.
     help = "?",
@@ -67,6 +69,19 @@ M.defaults = {
       closed = "⌄",
       --- Glyph shown when the dropdown is open.
       open = "⌃",
+    },
+    --- Styling for `button` inputs. Each key can also be overridden on the
+    --- individual button spec.
+    button = {
+      --- Wrap the button in a floating-window border.
+      bordered = true,
+      --- String prepended to the button label (e.g. `"[ "` for `[ Save ]`).
+      prefix = "",
+      --- String appended to the button label (e.g. `" ]"` for `[ Save ]`).
+      suffix = "",
+      --- Horizontal alignment of the label text inside the button: `"left"`,
+      --- `"center"`, or `"right"`.
+      align = "center",
     },
     --- Glyphs shown in `checkbox` inputs.
     checkbox = {
@@ -93,6 +108,13 @@ M.defaults = {
       InputFormField = { link = "NormalFloat", default = true },
       InputFormFieldBorder = { link = "FloatBorder", default = true },
       InputFormFieldTitle = { link = "FloatTitle", default = true },
+      -- Button input. Focus state reverses fg/bg so the focused button
+      -- renders as the inverse of its normal colors (i.e. light text on dark
+      -- becomes dark text on light, and vice-versa).
+      InputFormButton = { link = "NormalFloat", default = true },
+      InputFormButtonBorder = { link = "FloatBorder", default = true },
+      InputFormButtonFocus = { reverse = true, default = true },
+      InputFormButtonFocusBorder = { reverse = true, default = true },
       -- Error state for individual input fields
       InputFormFieldError = { fg = "Red", default = true },
       InputFormFieldErrorBorder = { fg = "Red", default = true },

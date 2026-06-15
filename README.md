@@ -10,10 +10,11 @@ dropdowns, checkboxes), collect results via an `on_submit` callback.
 
 - Bordered floating window with optional title
 - Keyboard-navigable: `<Tab>` / `<S-Tab>` to move between inputs
-- Input types: `text`, `multiline`, `select`, `checkbox`, plus `spacer` (visual-only gap between
-  fields)
+- Input types: `text`, `multiline`, `select`, `checkbox`, `button`, plus `spacer` (visual-only gap
+  between fields)
 - Select dropdowns open with `<CR>`; arrows navigate; `<CR>` confirms
 - Checkbox toggles with `<Space>` or `<CR>`
+- Buttons activate with `<CR>` or `<Space>` and invoke a user-supplied callback
 - Submit with `<C-s>` — results delivered as a `{ [name] = value }` table
 - Cancel with `<Esc>` or `q`
 - Built-in toggleable help popup (`?`) listing every active keymap — updates automatically when you
@@ -164,6 +165,41 @@ glyph sits immediately next to the label, and any validation error is appended o
   bordered inputs. Tune via `style.checkbox.padding` (default `1`, set to `0` to pack tight).
 - Pair with `validators.checked()` to require the box to be ticked (see [Validation](#validation)).
 
+#### `button`
+
+```lua
+{
+  type = "button",
+  label = "Submit",
+  on_activate = function(form)
+    form:submit()
+  end,
+}
+```
+
+A focusable control that carries no value (skipped in `form:results()`) and invokes
+`on_activate(form)` when activated. The form passes itself as the first argument so handlers can
+call `form:submit()` / `form:cancel()` / inspect `form:results()` without a closure.
+
+- `label` (required) — text rendered inside the button.
+- `on_activate` (optional) — `fun(form): nil` callback fired on activation.
+- `name` (optional) — buttons don't appear in `results()`, but a name can still be set for
+  identification.
+- Activated with the configured `keymaps.activate` keys (default `<CR>` and `<Space>`).
+- Per-button style overrides — any of `bordered`, `prefix`, `suffix`, `align` can be set directly on
+  the spec to override the global `style.button` defaults (see [Button styling](#button-styling)).
+
+```lua
+{
+  type = "button",
+  label = "Save",
+  prefix = "[ ",
+  suffix = " ]",
+  bordered = false,
+  on_activate = function(form) form:submit() end,
+}
+```
+
 #### `spacer`
 
 ```lua
@@ -284,6 +320,42 @@ require("input-form").setup({
 Alternatives that render well in most fonts: `[x]` / `[ ]`, `✔` / `·`, `●` / `○`. Set `padding = 0`
 to pack checkboxes flush against adjacent bordered inputs.
 
+### Button styling
+
+`button` inputs read their visual defaults from `style.button`, and any key can be overridden on the
+per-button spec:
+
+```lua
+require("input-form").setup({
+  style = {
+    button = {
+      bordered = true,    -- wrap the button in a floating-window border
+      prefix   = "",      -- e.g. "[ " for `[ Save ]`
+      suffix   = "",      -- e.g. " ]" for `[ Save ]`
+      align    = "center", -- "left" | "center" | "right"
+    },
+  },
+})
+```
+
+Focus state swaps `NormalFloat` / `FloatBorder` for `InputFormButtonFocus` /
+`InputFormButtonFocusBorder`, both of which default to `reverse = true` — the focused button renders
+with its foreground and background colors swapped. Override the highlight groups to use explicit
+colors instead:
+
+```lua
+require("input-form").setup({
+  style = {
+    highlights = {
+      InputFormButton            = { fg = "#cdd6f4", bg = "#1e1e2e" },
+      InputFormButtonBorder      = { fg = "#585b70" },
+      InputFormButtonFocus       = { fg = "#1e1e2e", bg = "#cdd6f4", bold = true },
+      InputFormButtonFocusBorder = { fg = "#cdd6f4" },
+    },
+  },
+})
+```
+
 ### Help popup
 
 The form's bottom border shows a compact `? help` hint on the right. Press `?` (configurable via
@@ -358,6 +430,10 @@ Available groups:
 | `InputFormFieldErrorTitle`  | Invalid field label                          |
 | `InputFormDropdown`         | Select dropdown background                   |
 | `InputFormDropdownActive`   | Highlighted dropdown row                     |
+| `InputFormButton`           | Unfocused button background                  |
+| `InputFormButtonBorder`     | Unfocused button border                      |
+| `InputFormButtonFocus`      | Focused button background (default reversed) |
+| `InputFormButtonFocusBorder`| Focused button border (default reversed)     |
 
 User overrides fully **replace** the default spec per group (they are not deep-merged at the field
 level), so you don't need to re-specify `default = true`. Highlights are re-applied on every
@@ -388,6 +464,7 @@ require("input-form").setup({
     cancel = { "<Esc>", "q" }, -- list form: both keys cancel the form
     open_select = "<CR>",
     toggle = "<Space>",
+    activate = { "<CR>", "<Space>" }, -- activate a focused `button` input
     help = "?",                -- toggle the help popup (set `false` to hide)
   },
   select = {
@@ -401,6 +478,12 @@ require("input-form").setup({
       checked   = "☑",
       unchecked = "☐",
       padding   = 1, -- blank rows above/below each checkbox
+    },
+    button = {
+      bordered = true,
+      prefix   = "",
+      suffix   = "",
+      align    = "center",
     },
     -- ...chevron, highlights, etc. — see sections above.
   },

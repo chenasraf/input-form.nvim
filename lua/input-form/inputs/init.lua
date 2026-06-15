@@ -8,6 +8,7 @@ M.types = {
   select = require("input-form.inputs.select"),
   checkbox = require("input-form.inputs.checkbox"),
   spacer = require("input-form.inputs.spacer"),
+  button = require("input-form.inputs.button"),
 }
 
 --- Build an input component instance from a user-provided spec.
@@ -16,8 +17,9 @@ M.types = {
 function M.build(spec)
   assert(type(spec) == "table", "input spec must be a table")
   local t = spec.type or "text"
-  -- Spacers are a visual-only faux input and don't require a `name`.
-  if t ~= "spacer" then
+  -- Spacers and buttons carry no value (they're skipped in `form:results()`),
+  -- so they don't require a `name`.
+  if t ~= "spacer" and t ~= "button" then
     assert(
       type(spec.name) == "string" and spec.name ~= "",
       "input spec requires a non-empty 'name'"
