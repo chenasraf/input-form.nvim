@@ -28,31 +28,17 @@ documentation-ci: deps documentation
 lint:
 	stylua .
 
-# installs the repo pre-commit hook that runs `make precommit` before every commit.
-precommit-install:
-	@mkdir -p .git/hooks
-	@printf '#!/usr/bin/env bash\nmake precommit\n' > .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
-	@echo "pre-commit hook installed at .git/hooks/pre-commit"
+# installs the lefthook-managed git hooks defined in `lefthook.yml`.
+hooks-install:
+	@command -v lefthook >/dev/null 2>&1 || { \
+	  echo "hooks-install: lefthook is not installed (brew install lefthook)" >&2; \
+	  exit 1; \
+	}
+	@lefthook install
 
-# runs the pre-commit checks: lints all Lua files (auto-fixing anything that
-# isn't formatted), regenerates docs, and re-stages any files that changed.
+# runs the lefthook pre-commit jobs on demand, outside of git.
 precommit:
-	@set -eu; \
-	if command -v stylua >/dev/null 2>&1; then \
-	  stylua .; \
-	  reformatted=$$(git diff --name-only -- '*.lua'); \
-	  if [ -n "$$reformatted" ]; then \
-	    echo "precommit: re-staging stylua-formatted files:"; \
-	    echo "$$reformatted" | sed 's/^/  /'; \
-	    git add $$reformatted; \
-	  fi; \
-	  stylua --check .; \
-	else \
-	  echo "precommit: stylua not installed; skipping lint" >&2; \
-	fi; \
-	$(MAKE) documentation; \
-	git add doc
+	@lefthook run pre-commit
 
 clean:
 	rm -rf deps

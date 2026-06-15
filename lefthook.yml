@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - name: stylua
+      glob: "*.lua"
+      run: stylua {staged_files}
+      stage_fixed: true
+    - name: documentation
+      glob: "*.lua"
+      run: make documentation
+      stage_fixed: true
