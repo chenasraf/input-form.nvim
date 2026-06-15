@@ -143,6 +143,13 @@ function M:show()
   end
   self._visible = true
 
+  -- Capture editor state so we can restore it on hide. Without this, a user
+  -- who was in normal mode before opening the form stays in insert mode after
+  -- the form closes (because the form's text inputs leave the editor in
+  -- insert mode when they're focused).
+  self._prev_win = vim.api.nvim_get_current_win()
+  self._prev_mode = vim.api.nvim_get_mode().mode
+
   -- Lazy: teach known UI plugins (nvim-scrollbar, satellite, ...) to skip
   -- form buffers. Runs once per nvim session.
   utils.register_ui_exclusions()
@@ -281,6 +288,42 @@ function M:hide()
   self._parent_win = nil
   self._parent_buf = nil
   self._visible = false
+
+  self:_restore_editor_state()
+end
+
+--- Restore the window + mode that were active before `show()` was called.
+--- Closing the form's floating windows would otherwise leave the editor in
+--- whatever mode the focused input had it in (typically insert for text /
+--- multiline), which surprises users who started from normal mode.
+function M:_restore_editor_state()
+  local prev_win = self._prev_win
+  local prev_mode = self._prev_mode
+  self._prev_win = nil
+  self._prev_mode = nil
+
+  if prev_win and vim.api.nvim_win_is_valid(prev_win) then
+    pcall(vim.api.nvim_set_current_win, prev_win)
+  end
+
+  if not prev_mode then
+    return
+  end
+
+  local first = prev_mode:sub(1, 1)
+  if first == "i" then
+    vim.cmd("startinsert")
+  elseif first == "R" then
+    vim.cmd("startreplace")
+  elseif first == "v" or first == "V" or first == "\22" then
+    -- Re-enter the last visual selection. Marks `<`/`>` are per-buffer and
+    -- survive the float open/close, so `gv` reselects the original range.
+    pcall(vim.cmd, "normal! gv")
+  else
+    if vim.fn.mode():sub(1, 1) == "i" then
+      vim.cmd("stopinsert")
+    end
+  end
 end
 
 --- Permanently tear down the form.
